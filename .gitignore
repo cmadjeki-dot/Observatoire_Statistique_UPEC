@@ -1,0 +1,64 @@
+# Secrets et configuration locale
+.Renviron
+.Renviron.*
+!.Renviron.example
+.env
+.env.*
+!.env.example
+.aws/
+.ssh/
+secrets/
+credentials/
+*.pem
+*.key
+/config/local/
+
+# Sessions R, journaux et fichiers temporaires
+.Rhistory
+.RData
+.Ruserdata
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db
+~$*
+
+# Caches et rendus reproductibles
+.quarto/
+_site/
+_freeze/
+*_cache/
+_targets/
+/renv/library/
+/renv/staging/
+/renv/cache/
+/renv/local/
+/renv/sandbox/
+
+# Donnees : exclues par defaut, sauf emplacements explicitement ouverts
+/data/*
+!/data/raw/
+!/data/interim/
+!/data/processed/
+!/data/public/
+/data/raw/*
+!/data/raw/.gitkeep
+/data/interim/*
+!/data/interim/.gitkeep
+/data/processed/*
+!/data/processed/.gitkeep
+
+# Publication : petits CSV synthetiques selectionnes et documentation seulement
+/data/public/*
+!/data/public/synthetic/
+/data/public/synthetic/*
+!/data/public/synthetic/*.csv
+!/data/public/synthetic/README.md
+
+# Resultats generes, y compris les sorties intermediaires
+/outputs/*
+!/outputs/.gitkeep

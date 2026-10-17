@@ -1,0 +1,3 @@
+# Configuration locale facultative : copier vers .Renviron si nécessaire.
+LANG=fr_FR.UTF-8
+LC_ALL=fr_FR.UTF-8

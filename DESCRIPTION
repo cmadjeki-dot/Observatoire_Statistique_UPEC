@@ -1,0 +1,16 @@
+Package: observatoireupec
+Title: Demonstrateur personnel d'observatoire statistique universitaire
+Version: 0.0.1
+Description: Projet d'analyse de donnees universitaires entierement synthetiques,
+    independant de l'UPEC. Ce dossier est un projet analytique, pas un package distribue.
+Encoding: UTF-8
+Depends: R (>= 4.6.0)
+Imports:
+    renv,
+    here,
+    fs,
+    tidyverse,
+    janitor,
+    testthat,
+    targets,
+    quarto

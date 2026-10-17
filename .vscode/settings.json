@@ -1,0 +1,8 @@
+{
+  "r.rterm.windows": "C:\\Program Files\\R\\R-4.6.1\\bin\\R.exe",
+  "r.rpath.windows": "C:\\Program Files\\R\\R-4.6.1\\bin\\R.exe",
+  "terminal.integrated.env.windows": {
+    "LANG": "fr_FR.UTF-8",
+    "LC_ALL": "fr_FR.UTF-8"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "cwd": "${workspaceFolder}",
+    "env": {
+      "LANG": "fr_FR.UTF-8",
+      "LC_ALL": "fr_FR.UTF-8"
+    }
+  },
+  "tasks": [
+    {
+      "label": "R : diagnostic sans activation renv",
+      "type": "process",
+      "command": "${config:r.rpath.windows}",
+      "args": ["--vanilla", "--slave", "--file=${workspaceFolder}/scripts/check_environment.R"],
+      "problemMatcher": []
+    },
+    {
+      "label": "R : executer le script actif",
+      "type": "process",
+      "command": "${config:r.rpath.windows}",
+      "args": ["--no-save", "--no-restore", "--slave", "--file=${file}"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Quarto : version",
+      "type": "process",
+      "command": "quarto",
+      "args": ["--version"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Quarto : rendre le document actif",
+      "type": "process",
+      "command": "quarto",
+      "args": ["render", "${file}"],
+      "problemMatcher": []
+    }
+  ]
+}
