@@ -1,5 +1,12 @@
 # Tableaux de bord Shiny et Power BI — étape 30
 
+## Accès visuel au projet
+
+Le [site public du projet](https://cmadjeki-dot.github.io/Observatoire_Statistique_UPEC/)
+propose cinq vues interactives des exports contrôlés et le rapport final.
+Le [guide d’accès](site_github.md) distingue ce site, Shiny local et Power BI
+Desktop. Le site n’héberge pas une session Shiny ni Power BI Service.
+
 Projet personnel indépendant de l'UPEC, données entièrement synthétiques.
 Les cinq vues sont inscriptions, réussite, parcours, enquêtes et insertion.
 Les filtres portent sur l'année de référence et, pour l'insertion, le type du

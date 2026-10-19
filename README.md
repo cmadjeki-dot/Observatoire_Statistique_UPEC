@@ -2,6 +2,12 @@
 
 **Démonstrateur personnel indépendant de l’UPEC. Toutes les données sont synthétiques et tous les résultats sont non officiels.**
 
+**[Ouvrir le site du projet et les indicateurs interactifs](https://cmadjeki-dot.github.io/Observatoire_Statistique_UPEC/)** · [Guide Shiny, Power BI et site](docs/site_github.md).
+
+Le site public donne accès à cinq vues d’indicateurs filtrables et au rapport
+final. Shiny reste accessible sur le poste où son serveur est lancé ; le projet
+Power BI s’ouvre dans Desktop. Le site ne simule pas leur hébergement distant.
+
 Le projet simule une commande d’observatoire universitaire : suivre les inscriptions,
 la réussite et les parcours, exploiter les enquêtes et restituer des indicateurs
 accessibles aux responsables sans compétence statistique.
@@ -304,6 +310,7 @@ quarto render docs/simulation_jury.qmd --to html --output-dir ../outputs/present
 config/                 Simulation et catalogue des indicateurs
 R/                      Fonctions métier, qualité, modèles, pipeline et interfaces
 scripts/                Lanceurs et recettes
+site/                   Sources du site public GitHub Pages
 notebooks/              Analyses Quarto 00 à 11
 data/raw/               Sauvegardes originales synthétiques
 data/interim/           Données intermédiaires
