@@ -1,0 +1,180 @@
+---
+title: "11 — Synthèse pour le pilotage des formations"
+subtitle: "Résultats, portée métier et recommandations — démonstrateur indépendant de l'UPEC"
+lang: fr
+date: 2026-10-19
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: false
+  warning: true
+  message: true
+  error: false
+  cache: false
+---
+
+```{r}
+#| include: false
+knitr::opts_knit$set(root.dir = here::here())
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "analysis", "descriptive.R"))
+source(here::here("R", "analysis", "longitudinal.R"))
+source(here::here("R", "modeling", "model.R"))
+source(here::here("R", "analysis", "restitution.R"))
+stopifnot(isTRUE(renv::status()$synchronized))
+protected_files <- c(fs::dir_ls(data_path("raw"), type = "file", all = TRUE),
+  fs::dir_ls(data_path("processed"), type = "file", all = TRUE),
+  output_path("indicateurs", "indicateurs_decisionnels.rds"),
+  output_path("modelisation", "audit_modelisation.rds"),
+  output_path("modelisation", "modele_reussite.rds"),
+  output_path("longitudinal", "analyse_longitudinale.rds"),
+  output_path("faisabilite_causale", "audit_faisabilite.rds"))
+hash_before <- tools::md5sum(protected_files)
+evidence <- load_restitution_evidence()
+findings <- build_restitution_findings(evidence)
+school_year <- max(evidence$indicateurs$annee_universitaire[evidence$indicateurs$id == "I02"])
+n_enrolments <- evidence$indicateurs$valeur[evidence$indicateurs$id == "I02" &
+  evidence$indicateurs$annee_universitaire == school_year]
+```
+
+## À retenir pour les responsables de formation et le SPOF
+
+**Données entièrement synthétiques : aucune conclusion ne concerne l'UPEC
+réelle.** Ce projet personnel illustre une démarche de pilotage. Le gel des
+observations reste fixé au **30 septembre 2026** ; la date de cette restitution
+ne crée aucune donnée plus récente.
+
+- **Volumes :** `r .restitution_number(n_enrolments, 0)` inscriptions en `r school_year` ; la variation par rapport à
+  l'année précédente doit être lue avec les entrées, les sorties et les niveaux.
+- **Réussite et diplôme :** les deux taux ont des populations différentes.
+  Une comparaison demande de vérifier d'abord les dénominateurs et la couverture.
+- **Parcours :** seules les deux premières années ont une transition suivante
+  observable ; la présence à un an est comparable pour deux cohortes L1.
+- **Enquêtes et devenir :** les répondants ne représentent pas automatiquement
+  tous les invités. Situation connue, études et emploi hors études doivent
+  rester affichés ensemble, à leur millésime propre.
+- **Décision :** les constats orientent des vérifications et des questions.
+  Ils ne justifient ni classement de formations, ni ciblage individuel, ni
+  attribution d'un effet causal.
+
+La priorité proposée est de fiabiliser la lecture des indicateurs et la collecte,
+puis d'automatiser une restitution dont les filtres et calculs sont contrôlés.
+Il ne s'agit pas d'un plan d'intervention sur des formations réelles.
+
+## Huit constats, avec leur portée et leur recommandation
+
+Chaque fiche présente le résultat calculé, ce qu'il permet de dire, l'implication
+pour le pilotage et une proposition à instruire. Les recommandations sont
+méthodologiques ; elles ne sont pas des effets d'action démontrés par ces données.
+
+```{r}
+#| results: asis
+for (i in seq_len(nrow(findings))) {
+  x <- findings[i, ]
+  cat("\n\n### ", x$id, " — ", x$titre, "\n\n", sep = "")
+  cat("**Périmètre :** ", x$millesime, "\n\n", sep = "")
+  print(knitr::kable(data.frame(
+    rubrique = c("Résultat statistique", "Interprétation", "Implication métier", "Recommandation proposée"),
+    contenu = c(x$resultat, x$interpretation, x$implication_metier, x$recommandation))))
+  cat("\n\n**Preuve :** ", x$source, "\n\n", sep = "")
+}
+```
+
+## Lecture des millésimes et des champs
+
+| Domaine | Millésime utilisé dans cette synthèse | Population et précaution |
+|---|---|---|
+| Inscriptions, validation et diplôme | 2025-2026 | Inscriptions, décisions connues ou niveaux terminaux selon l'indicateur |
+| Passage, redoublement et réorientation | Départ 2024-2025 vers 2025-2026 | Toutes les inscriptions de départ, sorties comprises |
+| Présence des cohortes L1 | Horizon 1 des cohortes 2023-2024 et 2024-2025 | Dénominateur initial de chaque cohorte, même après une absence |
+| Évaluation | Juin de l'année de fin 2025-2026 | Participation sur invités ; satisfaction sur les réponses numériques valides |
+| Devenir | Diplômes 2024-2025, situation à six mois | Dernier diplôme mature retenu par personne ; type de diplôme conservé |
+| Modèle | Coupe 2023-2024, test interne | Dossiers complets, étudiants de test distincts de l'apprentissage |
+
+La synthèse ne regroupe pas ces dates sous un unique « taux actuel ».
+Les `r .restitution_number(evidence$annexes$etudiants_distincts$n_etudiants, 0)` étudiants distincts du panel ne s'obtiennent pas en additionnant
+les `r .restitution_number(evidence$annexes$etudiants_distincts$n_inscriptions, 0)` inscriptions cumulées. Les absences de résultats, les NC d'enquête,
+les sorties du champ et les transitions censurées gardent leurs significations
+distinctes. Une absence de valeur n'est pas remplacée par zéro.
+
+## Propositions à instruire dans un dispositif réel
+
+Les rôles ci-dessous sont proposés pour organiser un futur travail ; aucune
+affectation, relance ou action sur des personnes n'est effectuée par ce projet.
+Les critères sont des contrôles de méthode, pas des objectifs chiffrés de réussite
+ou de satisfaction inventés à partir de la simulation.
+
+| Priorité proposée | Travail à instruire | Rôles proposés | Condition de validation |
+|---|---|---|---|
+| P1 — Lecture commune | Relire populations, dates, exclusions et couvertures des indicateurs | Chargé d'études et service de pilotage, avec responsables de formation | Même résultat retrouvé pour un indicateur, un filtre et un millésime identiques |
+| P2 — Qualité de collecte | Tester les questionnaires, filtres, motifs manquants et modalités de relance | Référent enquête et équipes de formation | Parcours du questionnaire testés sur cas fictifs ; invitations et réponses rapprochées sans doublon |
+| P3 — Restitution reproductible | Préparer le pipeline et tester les restitutions Shiny/Power BI | Chargé d'études et référent technique | Reconstruction des tables et concordance des mesures et filtres vérifiées |
+| P4 — Usage du modèle | Définir une question et une validation adaptées avant toute application | Équipe d'études avec les utilisateurs concernés | Usage, population, limites et performances documentés ; aucun seuil individuel non justifié |
+
+P1 doit précéder l'interprétation des écarts. P2 et P3 améliorent la collecte
+et la fiabilité de la restitution, sans garantir qu'une action ferait progresser
+la réussite ou l'insertion. Une question d'efficacité demanderait un dispositif
+d'étude spécifique, comme expliqué dans le notebook 09.
+
+## Ce qui est disponible, et ce qui reste à construire
+
+Les analyses, le catalogue des dix indicateurs et leurs contrôles sont disponibles.
+Le modèle reste exploratoire et la faisabilité causale conclut à ne produire
+aucun effet causal avec les tables actuelles. La spécification LimeSurvey n'a
+pas été importée sur une instance.
+
+Pour lire le constat sur le modèle : la référence constante donne à tous les
+étudiants la même probabilité, apprise sur l'échantillon d'apprentissage.
+Le modèle fait légèrement mieux sur le test, mais sa capacité à distinguer
+les situations individuelles reste limitée. Cela ne démontre l'efficacité
+d'aucune action pédagogique.
+
+Le pipeline `targets`, les applications Shiny et Power BI, leur recette et leur
+actualisation restent à construire. Aucun tableau de bord ni automatisation
+d'actualisation n'est annoncé comme opérationnel. Cette synthèse n'est pas
+le rapport final, la présentation orale ou une publication institutionnelle.
+
+## Traçabilité de la restitution
+
+Les constats utilisent les archives des indicateurs, du modèle et de la
+faisabilité causale après vérification de leurs sources. Le suivi des cohortes
+est recalculé avec les fonctions existantes sur les tables préparées contrôlées,
+puis rapproché de l'export du notebook 08. Les anciens documents éditoriaux
+n'interviennent pas comme données dans ce rapprochement. Les performances
+du test sont vérifiées sur les prédictions sauvegardées, sans réestimation.
+
+```{r}
+out <- output_path("restitution")
+fs::dir_create(out)
+sources <- c(protected_files, here::here("R", "analysis", "restitution.R"),
+  here::here("R", "utils", "paths.R"),
+  here::here("R", "analysis", "descriptive.R"), here::here("R", "analysis", "longitudinal.R"),
+  here::here("R", "modeling", "model.R"), here::here("config", "indicators.yml"),
+  here::here("notebooks", "11_restitution_decisionnelle.qmd"), here::here("renv.lock"))
+source_manifest <- data.frame(fichier = as.character(fs::path_rel(sources, start = here::here())),
+  md5 = unname(tools::md5sum(sources)))
+utils::write.csv(findings, fs::path(out, "constats_decisionnels.csv"),
+  row.names = FALSE, fileEncoding = "UTF-8")
+utils::write.csv(source_manifest, fs::path(out, "manifeste_sources.csv"), row.names = FALSE)
+writeLines(enc2utf8(format_restitution_markdown(findings)), fs::path(out, "synthese_pilotage.md"), useBytes = TRUE)
+saveRDS(list(constats = findings, sources = source_manifest, metadata = evidence$metadata,
+  session = sessionInfo()), fs::path(out, "restitution_decisionnelle.rds"))
+stopifnot(identical(hash_before, tools::md5sum(protected_files)))
+knitr::kable(data.frame(livrable = c("Huit fiches de constats", "Synthèse Markdown partageable",
+  "Archive des constats et des sources", "Manifeste des empreintes"),
+  fichier = c("constats_decisionnels.csv", "synthese_pilotage.md", "restitution_decisionnelle.rds", "manifeste_sources.csv")))
+```
+
+Les données brutes, préparées et les archives consultées restent inchangées.
+Les exports sont des documents de travail sur données synthétiques ; ils n'ont
+été ni envoyés à des tiers ni publiés.
+
+::: {.callout-note collapse="true"}
+## Environnement technique de reproduction
+
+```{r}
+sessionInfo()
+```
+:::

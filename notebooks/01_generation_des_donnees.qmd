@@ -1,0 +1,165 @@
+---
+title: "01 — Génération et sauvegarde des données synthétiques"
+subtitle: "Démonstrateur personnel indépendant de l'UPEC"
+lang: fr
+date: 2026-10-18
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+  error: false
+  cache: false
+---
+
+## Objectif et provenance
+
+Ce notebook génère les tables selon la configuration validée, vérifie les
+dimensions et les relations, puis sauvegarde les objets bruts. Toutes les données
+sont synthétiques. Aucun résultat ne décrit l'UPEC ni une population réelle.
+Aucun nettoyage, recodage analytique ou traitement correctif n'est réalisé ici.
+
+Les fonctions réutilisables sont dans `R/data/`. Les mécanismes, graines et
+questionnaires sont documentés dans `docs/plan_simulation.md` et
+`docs/questionnaires.md`. Les anomalies seront conservées séparément, avec leur
+journal ; elles ne doivent pas contaminer la base de référence.
+
+## Environnement et configuration
+
+```{r}
+#| label: environnement
+root <- here::here()
+knitr::opts_knit$set(root.dir = root)
+source(here::here("R", "data", "simulate_data.R"))
+source(here::here("R", "data", "raw_storage.R"))
+cfg <- dget(here::here("config", "simulation.R"))
+stopifnot(identical(cfg$statut, "valide"))
+status <- renv::status()
+stopifnot(isTRUE(status$synchronized))
+knitr::kable(data.frame(domaine = names(cfg$graines), graine = unname(cfg$graines)))
+```
+
+## Génération de la base cohérente
+
+```{r}
+#| label: generation
+dataset <- generate_dataset(cfg)
+stopifnot(
+  identical(dataset$metadata$provenance, "entierement_synthetique_non_officiel"),
+  identical(dataset$metadata$donnees_personnelles_reelles, FALSE),
+  identical(dataset$metadata$anomalies_injectees, FALSE),
+  identical(dataset$metadata$config, cfg)
+)
+tables <- dataset[vapply(dataset, is.data.frame, logical(1))]
+dimensions <- data.frame(
+  table = names(tables),
+  lignes = vapply(tables, nrow, integer(1)),
+  colonnes = vapply(tables, ncol, integer(1)),
+  row.names = NULL
+)
+stopifnot(length(tables) == 11L, nrow(dataset$etudiants) == cfg$n_etudiants)
+knitr::kable(dimensions)
+knitr::kable(as.data.frame(table(dataset$inscriptions$annee_universitaire)),
+             col.names = c("Année universitaire", "Inscriptions principales"))
+```
+
+Les personnes distinctes et les inscriptions sont deux unités différentes.
+Les effectifs annuels dépendent des entrées et des sorties simulées ; la cible
+de 15 000 porte sur les personnes distinctes de toute la période.
+
+## Clés et relations entre tables
+
+```{r}
+#| label: relations
+keys <- c(etudiants = "id_etudiant", formations = "id_formation",
+  inscriptions = "id_inscription", resultats = "id_inscription",
+  parcours = "id_inscription_depart", invitations_evaluation = "id_invitation_evaluation",
+  evaluations = "id_reponse_evaluation", decisions_diplome = "id_inscription",
+  diplomes = "id_diplome", invitations_devenir = "id_invitation_devenir",
+  devenir_diplomes = "id_reponse_devenir")
+for (table in names(keys)) {
+  values <- dataset[[table]][[keys[[table]]]]
+  stopifnot(!anyNA(values), !anyDuplicated(values))
+}
+ins <- dataset$inscriptions
+stopifnot(
+  !anyDuplicated(ins[c("id_etudiant", "annee_universitaire")]),
+  setequal(ins$id_etudiant, dataset$etudiants$id_etudiant),
+  all(ins$id_formation %in% dataset$formations$id_formation),
+  setequal(dataset$resultats$id_inscription, ins$id_inscription),
+  setequal(dataset$parcours$id_inscription_depart, ins$id_inscription),
+  setequal(dataset$invitations_evaluation$id_inscription, ins$id_inscription),
+  all(dataset$evaluations$id_invitation_evaluation %in%
+        dataset$invitations_evaluation$id_invitation_evaluation),
+  all(dataset$decisions_diplome$id_inscription %in% ins$id_inscription),
+  all(dataset$diplomes$id_inscription %in%
+        dataset$decisions_diplome$id_inscription[dataset$decisions_diplome$attribution_diplome == "oui"]),
+  all(dataset$invitations_devenir$id_diplome %in% dataset$diplomes$id_diplome),
+  all(dataset$devenir_diplomes$id_invitation_devenir %in%
+        dataset$invitations_devenir$id_invitation_devenir)
+)
+next_ids <- dataset$parcours$id_inscription_suivante
+stopifnot(all(next_ids[!is.na(next_ids)] %in% ins$id_inscription))
+cat("Clés primaires, unités annuelles et références contrôlées.\n")
+```
+
+Ces contrôles documentent la génération. La suite unitaire de l'étape 13 reste
+la référence pour les domaines et les cas limites ; le rapport qualité
+opérationnel sera produit à l'étape 16.
+
+## Version distincte avec anomalies contrôlées
+
+```{r}
+#| label: anomalies
+injected <- inject_quality_issues(dataset)
+stopifnot(
+  !dataset$metadata$anomalies_injectees,
+  injected$data$metadata$anomalies_injectees,
+  nrow(injected$issues) == 5L * cfg$anomalies$nombre_par_type
+)
+knitr::kable(as.data.frame(table(injected$issues$type)),
+             col.names = c("Type d'anomalie", "Injections"))
+```
+
+Les valeurs initiales et injectées, les clés et les contrôles attendus sont
+consignés dans le journal. Un même défaut peut déclencher plusieurs alertes.
+Aucune correction de ces anomalies n'est effectuée dans ce notebook.
+
+## Sauvegarde brute et relecture
+
+Le format RDS conserve les dates, les entiers, les booléens, les valeurs manquantes
+et les métadonnées sans conversion en texte. Chaque base est une liste nommée de
+onze tables et de sa provenance. Le journal est sauvegardé séparément.
+
+Les noms sont stables. Une réexécution réutilise les fichiers identiques ; un
+contenu différent provoque une erreur avant écriture. Pour une nouvelle version
+volontaire, choisir un nouveau dossier de sauvegarde et conserver l'ancienne.
+Les empreintes MD5 servent à détecter une modification accidentelle des fichiers.
+
+```{r}
+#| label: sauvegarde-brute
+manifest <- save_raw_dataset(dataset, injected)
+restored <- load_raw_dataset()
+stopifnot(
+  identical(restored$dataset, dataset),
+  identical(restored$anomalies, injected$data),
+  identical(restored$issues, injected$issues)
+)
+knitr::kable(manifest[c("fichier", "n_etudiants", "n_inscriptions", "n_anomalies", "octets", "md5")])
+cat("Sauvegarde brute et relecture intégrale validées, sans nettoyage.\n")
+```
+
+Les quatre fichiers sont dans `data/raw/` et exclus de Git. Les analyses
+utiliseront la base cohérente ; la copie anomale est destinée aux contrôles
+de qualité et aux exercices de nettoyage. Aucun export Power BI n'est produit
+avant calcul et validation des indicateurs.
+
+## Environnement d'exécution
+
+```{r}
+#| label: session
+sessionInfo()
+```

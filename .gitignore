@@ -62,3 +62,8 @@ _targets/
 # Resultats generes, y compris les sorties intermediaires
 /outputs/*
 !/outputs/.gitkeep
+
+# Configuration Power BI propre au poste et caches Desktop
+/powerbi/Observatoire.SemanticModel/definition/expressions.tmdl
+**/.pbi/
+*.pbix

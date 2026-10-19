@@ -1,0 +1,12 @@
+# Fins de ligne deterministes pour R, Quarto, JSON et scripts sous Windows.
+# Aucun changement de configuration Git globale ni de l'index.
+* text=auto eol=lf
+# Conserver les octets du verrouillage existant suivi par les manifestes MD5.
+renv.lock text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.rds binary
+*.pbix binary

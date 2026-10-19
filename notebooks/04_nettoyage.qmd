@@ -1,0 +1,128 @@
+---
+title: "04 — Nettoyage et préparation analytique"
+subtitle: "Démonstrateur personnel indépendant de l'UPEC — données synthétiques"
+lang: fr
+date: 2026-10-18
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+  error: false
+  cache: false
+---
+
+## Politique de traitement
+
+La base cohérente sert de référence indépendante pour vérifier la restauration
+de la copie altérée. Les corrections utilisent exclusivement le journal des
+injections, jamais une substitution globale par cette référence. Ce dispositif
+de démonstration ne constitue pas une méthode de correction automatique de
+données administratives réelles : une valeur initiale connue est ici disponible.
+
+| Nature | Traitement | Justification |
+|---|---|---|
+| Copie strictement identique ajoutée et identifiée dans le journal | Supprimer uniquement la copie documentée | Préserver l'inscription originale et le dénominateur |
+| Référence orpheline | Restaurer l'identifiant initial documenté | Ne pas supprimer un étudiant ni inventer une correspondance |
+| Moyenne hors domaine | Restaurer la valeur initiale, y compris NA | Ne pas tronquer à 20 ni imputer une moyenne |
+| Date ou transition incohérente | Restaurer la valeur initiale documentée | Conserver la chronologie et les clés longitudinales |
+| Résultat inconnu, bac ou bourse indisponible | Conserver valeur et motif | L'absence ne signifie pas un échec ou une réponse négative |
+| Non-réponse totale ou par item, non-concerné | Conserver invitations, réponses et motifs séparés | Préserver les futurs dénominateurs d'enquête |
+| Sortie observée ou dernière année censurée | Conserver la référence suivante absente | Ne pas assimiler une sortie à un abandon |
+| Erreur sans preuve, journal obsolète ou contrôle résiduel | Bloquer la préparation et demander une investigation | Aucune correction arbitraire ni exclusion silencieuse |
+
+## Sources et intégrité
+
+```{r}
+knitr::opts_knit$set(root.dir = here::here())
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "data", "raw_storage.R"))
+source(here::here("R", "quality", "check_quality.R"))
+source(here::here("R", "data", "clean_data.R"))
+stopifnot(isTRUE(renv::status()$synchronized))
+raw_files <- fs::dir_ls(data_path("raw"), type = "file", all = TRUE)
+raw_hash_before <- tools::md5sum(raw_files)
+raw <- load_raw_dataset()
+sources <- c(raw_files, here::here("R", "data", "clean_data.R"),
+  here::here("R", "quality", "check_quality.R"), here::here("renv.lock"))
+source_manifest <- data.frame(
+  fichier = as.character(fs::path_rel(sources, start = here::here())),
+  md5 = unname(tools::md5sum(sources)), stringsAsFactors = FALSE)
+knitr::kable(source_manifest)
+```
+
+## Correction et comparaison avant/après
+
+```{r}
+reference <- clean_data(raw$dataset)
+corrected <- clean_data(raw$anomalies, raw$issues)
+table_names <- names(quality_schema())
+identical_tables <- vapply(table_names, function(table)
+  identical(corrected$data[[table]], reference$data[[table]]), logical(1))
+stopifnot(all(identical_tables))
+comparison <- data.frame(
+  table = table_names,
+  lignes_avant = vapply(raw$anomalies[table_names], nrow, integer(1)),
+  lignes_apres = vapply(corrected$data[table_names], nrow, integer(1)),
+  identique_reference = identical_tables)
+knitr::kable(comparison)
+balance <- data.frame(
+  variante = c("copie_avant", "copie_apres", "reference"),
+  alertes = c(corrected$before$metadata$n_alertes,
+    corrected$after$metadata$n_alertes, reference$after$metadata$n_alertes),
+  verdict = c(corrected$before$metadata$verdict,
+    corrected$after$metadata$verdict, reference$after$metadata$verdict))
+knitr::kable(balance)
+knitr::kable(as.data.frame(table(corrected$journal$type, corrected$journal$action)))
+```
+
+Le nombre d'alertes diffère du nombre d'injections : une même erreur peut
+déclencher plusieurs contrôles. La conformité après correction reste limitée
+au périmètre des règles de qualité versionnées. Les onze tables restaurées
+sont comparées intégralement à la référence, valeurs manquantes et types inclus.
+Les métadonnées conservent l'historique d'injection et la méthode de nettoyage.
+
+## Préparation des tables analytiques
+
+Les onze tables normalisées sont conservées. `scolarite_analytique` possède
+une ligne par inscription principale ; les jointures vérifient leur cardinalité.
+`cible_reussite` vaut TRUE pour une validation, FALSE pour une non-validation et
+NA pour une décision inconnue. `decision_connue` facilite le calcul ultérieur
+de la couverture. `transition_observable` distingue la dernière année censurée.
+La validation annuelle reste distincte de la diplomation dans sa table dédiée.
+Les enquêtes restent séparées pour éviter de multiplier les inscriptions ou
+de transformer la non-réponse en réponse négative. Aucun taux n'est calculé ici.
+
+```{r}
+prepared <- prepare_analytic_tables(corrected$data)
+stopifnot(nrow(prepared$scolarite_analytique) == nrow(raw$dataset$inscriptions))
+audit <- list(journal = corrected$journal, avant = corrected$before,
+  apres = corrected$after, comparaison = comparison, bilan = balance,
+  sources = source_manifest)
+manifest <- save_processed_tables(prepared, audit)
+knitr::kable(manifest)
+out <- output_path("nettoyage")
+fs::dir_create(out)
+utils::write.csv(comparison, fs::path(out, "comparaison_avant_apres.csv"), row.names = FALSE)
+utils::write.csv(balance, fs::path(out, "bilan_qualite.csv"), row.names = FALSE)
+utils::write.csv(corrected$journal, fs::path(out, "journal_corrections.csv"),
+  row.names = FALSE, na = "", fileEncoding = "UTF-8")
+utils::write.csv(source_manifest, fs::path(out, "manifeste_sources.csv"), row.names = FALSE)
+stopifnot(identical(raw_hash_before, tools::md5sum(raw_files)))
+```
+
+Les RDS conservent les types et NA. Le manifeste permet de vérifier les fichiers
+enregistrés. Un fichier analytique divergent bloque l'écriture ; une relance
+avec les mêmes objets est autorisée. Les données brutes sont contrôlées par
+empreinte avant/après et restent inchangées. Les données et journaux de travail
+restent exclus de Git. Les exports d'indicateurs Power BI seront construits
+ultérieurement à partir de ces tables et de définitions validées.
+
+## Environnement d'exécution
+
+```{r}
+sessionInfo()
+```

@@ -1,0 +1,309 @@
+---
+title: "07 — Évaluation des formations et enquêtes"
+subtitle: "Participation, satisfaction et devenir — données entièrement synthétiques"
+lang: fr
+date: 2026-10-18
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+  error: false
+  cache: false
+---
+
+## Finalité et lecture
+
+Ce travail illustre l'exploitation d'enquêtes pour les responsables de formation
+et le SPOF dans un projet personnel indépendant de l'UPEC. Aucun résultat ne
+décrit la population réelle de cette université. Les invitations constituent
+la population de référence ; la non-réponse ne devient jamais une insatisfaction,
+une absence d'emploi ou une absence de poursuite d'études.
+
+Les indicateurs suivent I06/I07 et I09 à I11 du dictionnaire. Les résultats
+principaux sont annuels ou par cohorte de diplôme et type de diplôme. Un taux
+est absent lorsque son propre dénominateur est inférieur à dix. Les effectifs
+restent disponibles dans ces sorties de travail ; un examen complémentaire des
+petits effectifs serait nécessaire avant diffusion publique.
+
+## Sources, contrôles et univers d'enquête
+
+```{r}
+knitr::opts_knit$set(root.dir = here::here())
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "analysis", "descriptive.R"))
+source(here::here("R", "quality", "check_quality.R"))
+source(here::here("R", "surveys", "analyse_surveys.R"))
+stopifnot(isTRUE(renv::status()$synchronized))
+input_files <- c(fs::dir_ls(data_path("raw"), type = "file", all = TRUE),
+  fs::dir_ls(data_path("processed"), type = "file", all = TRUE))
+hash_before <- tools::md5sum(input_files)
+input <- load_descriptive_source()
+dataset <- setNames(lapply(names(quality_schema()), function(name)
+  readRDS(data_path("processed", paste0(name, ".rds")))), names(quality_schema()))
+dataset$metadata <- input$metadata
+surveys <- prepare_survey_tables(dataset)
+e <- surveys$evaluation
+d <- surveys$devenir
+knitr::kable(data.frame(univers = c("Invitations évaluation", "Réponses évaluation",
+  "Invitations devenir", "Questionnaires devenir reçus"),
+  effectif = c(nrow(e), sum(e$a_repondu), nrow(d), sum(d$a_repondu))))
+```
+
+La préparation applique à nouveau les contrôles de qualité aux onze tables et
+bloque si une erreur ou une comparaison non résolue subsiste. Les jointures ne
+multiplient pas les lignes. La clôture des invitations de devenir est antérieure
+ou égale au gel fixe du 30 septembre 2026. Les trois vagues d'évaluation peuvent
+contenir les mêmes étudiants : les effectifs cumulés sont des invitations,
+pas des étudiants distincts.
+
+## Questionnaire type et conduite de la collecte
+
+Le protocole dans `docs/protocole_enquete.md` complète les questionnaires
+stables de `docs/questionnaires.md`. Il prévoit deux enquêtes distinctes :
+trois items d'évaluation facultatifs sur une échelle 1 à 5 avec « non concerné »,
+et une enquête de devenir sur la situation à six mois, avec priorité aux études.
+La question d'emploi pendant les études s'affiche seulement si la situation
+principale est « études ». Les filtres de participation et ces parcours doivent
+être testés dans une future instance LimeSurvey.
+
+La spécification couvre codes, filtres, absence de réponse par défaut,
+réponses partielles, reprise et export. Elle n'est pas un import `.lss` testé.
+Les tables synthétiques ne représentent pas des consentements réels ; aucun
+envoi, contact ni paramétrage de service n'est réalisé.
+
+## Participation et satisfaction — I06/I07
+
+```{r}
+eval_year <- summarise_evaluation(e)
+eval_total <- summarise_evaluation(e, groups = character())
+eval_formation <- summarise_evaluation(e, groups = c("annee_universitaire", "libelle_formation"))
+distribution <- evaluation_distribution(e)
+knitr::kable(eval_year[c("annee_universitaire", "n_invites", "n_repondants", "n_complets",
+  "taux_reponse_pct", "n_valides_global", "couverture_item_pct", "satisfaction_favorable_pct")], digits = 2)
+```
+
+Sur `r eval_total$n_invites` invitations cumulées, `r eval_total$n_repondants`
+réponses sont exploitables au sens du protocole, soit
+`r round(eval_total$taux_reponse_pct, 2)` %. Une réponse partielle peut contribuer
+à un item ; un questionnaire complet signifie que les trois items sont
+renseignés par une modalité 1 à 5 ou NC.
+
+La satisfaction favorable cumulée est de
+`r round(eval_total$satisfaction_favorable_pct, 2)` % parmi les
+`r eval_total$n_valides_global` réponses numériques de l'item global.
+La couverture numérique représente `r round(eval_total$couverture_item_pct, 2)` %
+des invitations. Ce pourcentage favorable concerne les répondants valides,
+sans généralisation automatique à tous les inscrits.
+
+```{r}
+knitr::kable(eval_year[c("annee_universitaire", "n_invites", "n_non_reponse_vague",
+  "n_non_reponse_item", "n_non_concerne", "n_valides_global", "n_favorables")])
+knitr::kable(distribution, digits = 2)
+```
+
+La distribution présente les cinq modalités et les trois exclusions. La part
+sur invitations utilise toutes les invitations ; la part sur réponses valides
+utilise seulement les valeurs 1 à 5 et reste absente pour les exclusions.
+Les effectifs des huit modalités reconstituent exactement l'univers invité.
+
+```{r}
+knitr::kable(eval_formation[c("annee_universitaire", "libelle_formation", "n_invites",
+  "taux_reponse_pct", "n_valides_global", "satisfaction_favorable_pct", "statut_satisfaction")], digits = 2)
+```
+
+Ces ventilations servent à lire simultanément satisfaction et couverture.
+Les formations sont fictives ; leurs écarts ne permettent pas de classer leur
+qualité ni de déclencher une action sur une formation réelle.
+
+## Sélection des répondants et biais de non-réponse
+
+```{r}
+nonresponse <- survey_nonresponse(e)
+bourse <- nonresponse[nonresponse$variable == "boursier", ]
+knitr::kable(bourse, digits = 2)
+```
+
+La part de chaque modalité parmi les répondants est comparée à sa part dans
+l'univers invité de la même année. L'écart est exprimé en points, et non en
+pourcentage relatif. Les statuts boursiers indisponibles restent visibles et
+ne deviennent pas « non-boursier ».
+
+Pour 2025-2026, les taux de participation observés sont de
+`r round(bourse$taux_reponse_modalite_pct[bourse$annee_universitaire == "2025-2026" & !is.na(bourse$modalite) & bourse$modalite == "TRUE"], 2)` %
+chez les boursiers et de
+`r round(bourse$taux_reponse_modalite_pct[bourse$annee_universitaire == "2025-2026" & !is.na(bourse$modalite) & bourse$modalite == "FALSE"], 2)` %
+chez les non-boursiers identifiés. Le simulateur programme une relation entre
+bourse latente et participation ; retrouver une sélection sur cette variable
+ne constitue pas une observation sur des étudiants réels.
+
+::: {.callout-note collapse="true"}
+## Ensemble des comparaisons sur caractéristiques observées
+
+```{r}
+knitr::kable(nonresponse, digits = 2)
+```
+:::
+
+La comparaison selon la décision annuelle est rétrospective : le résultat
+définitif de septembre n'était pas nécessairement connu au moment de l'enquête
+de juin. Il ne sert pas à sélectionner les invitations. Les écarts décrivent
+une sélection sur des caractéristiques observées, sans mesurer le biais sur
+la satisfaction non observée des non-répondants. Aucun poids ni correction
+de représentativité n'est appliqué par défaut.
+
+## Relations entre items et pertinence d'une étude de fiabilité
+
+```{r}
+item_relations <- survey_item_relations(e)
+knitr::kable(item_relations, digits = 4)
+```
+
+Les corrélations de Spearman sont calculées par année et sur les seules paires
+numériques complètes. NC et valeurs vides sont exclus de chaque paire, dont
+l'effectif est publié. Les trois domaines sont distincts et simulés indépendamment,
+sans construit latent commun. Une faible association est donc compatible avec
+le mécanisme prévu, sans invalider chaque question prise séparément.
+
+Il n'est pas justifié de fabriquer une échelle unique, un score moyen ou un
+alpha de Cronbach présenté comme preuve de fiabilité. Une étude psychométrique
+demanderait un questionnaire conçu pour mesurer un construit commun et une
+validation de sa structure. Aucun package de psychométrie n'est installé ici.
+
+## Devenir des diplômés — champ observable et I09/I10/I11
+
+```{r}
+eligibility <- dplyr::count(surveys$eligibilite_diplomes,
+  .data$annee_universitaire, .data$type_diplome, .data$statut_eligibilite,
+  name = "n_diplomes")
+knitr::kable(eligibility)
+future <- summarise_graduate_survey(d)
+future_total <- summarise_graduate_survey(d, groups = character())
+knitr::kable(future[c("annee_universitaire", "type_diplome", "n_invites",
+  "n_questionnaires", "n_situations_connues", "n_non_reponse_vague",
+  "n_situations_inconnues_repondants", "taux_reponse_situation_pct")], digits = 2)
+```
+
+Les diplômes dont la collecte n'est pas close sont hors champ de l'enquête.
+Un diplôme mature plus ancien non retenu n'est pas non plus un non-répondant.
+Chaque personne invitée est rattachée à son diplôme mature le plus récent ;
+elle n'est comptée qu'une fois dans cette vague au gel.
+
+La vague compte `r future_total$n_invites` invités et
+`r future_total$n_questionnaires` questionnaires reçus. La situation est connue
+pour `r future_total$n_situations_connues` personnes, soit un taux I09 de
+`r round(future_total$taux_reponse_situation_pct, 2)` %. Un questionnaire reçu
+avec situation inconnue reste distinct d'une situation connue.
+
+```{r}
+knitr::kable(future[c("annee_universitaire", "type_diplome", "n_etudes",
+  "n_emploi_hors_etudes", "n_recherche_emploi", "n_autre_hors_etudes",
+  "n_hors_etudes", "emploi_parmi_hors_etudes_pct", "poursuite_etudes_pct")], digits = 2)
+knitr::kable(future[c("annee_universitaire", "type_diplome", "n_etudes",
+  "n_emploi_etudes_connu", "n_emploi_pendant_etudes", "emploi_pendant_etudes_pct",
+  "couverture_emploi_etudes_pct")], digits = 2)
+```
+
+La part en emploi hors études porte sur les seules situations connues hors
+études, y compris la recherche d'emploi et les autres situations. La poursuite
+d'études porte sur toutes les situations connues. Ces deux pourcentages ont
+des dénominateurs différents et ne s'additionnent pas pour former 100 %.
+Une personne en études avec activité professionnelle reste classée en études,
+avec une information complémentaire sur son emploi.
+
+Ces parts ne sont ni un taux de chômage ni un taux officiel d'insertion.
+Les situations inconnues et les non-répondants ne sont jamais codés sans emploi.
+L'année du diplôme et son type permettent de lire les populations comparées ;
+la sélection du dernier diplôme mature modifie le champ par rapport à l'ensemble
+des diplômes attribués. Le simulateur impose des distributions différentes
+entre licences et masters : aucune conclusion sur des diplômes réels n'en découle.
+
+Le tableau de participation par type et année permet de surveiller la couverture
+du devenir. Sa simulation utilise une participation aléatoire de référence et
+des situations parfois manquantes ; cela ne démontre pas que les non-répondants
+d'une enquête réelle auraient les mêmes situations que les répondants. Aucun
+redressement ni extrapolation de l'emploi à tous les invités n'est effectué.
+
+## Graphiques de restitution
+
+```{r}
+#| fig-width: 9
+#| fig-height: 5
+participation_plot <- ggplot2::ggplot(eval_year,
+  ggplot2::aes(x = .data$annee_universitaire, y = .data$taux_reponse_pct)) +
+  ggplot2::geom_col(fill = "#22577A") + ggplot2::scale_y_continuous(limits = c(0, 100)) +
+  ggplot2::labs(x = NULL, y = "Répondants / invitations (%)",
+    title = "Participation aux évaluations synthétiques") + ggplot2::theme_minimal()
+valid_distribution <- distribution[distribution$modalite %in% as.character(1:5), ]
+satisfaction_plot <- ggplot2::ggplot(valid_distribution,
+  ggplot2::aes(x = .data$annee_universitaire, y = .data$part_valides_pct, fill = .data$modalite)) +
+  ggplot2::geom_col(na.rm = TRUE) + ggplot2::labs(x = NULL,
+    y = "Part des réponses numériques valides (%)", fill = "Satisfaction (1 à 5)",
+    title = "Distribution de l'item global — simulation") + ggplot2::theme_minimal()
+bourse$statut_bourse <- ifelse(bourse$est_manquant, "Indisponible",
+  ifelse(bourse$modalite == "TRUE", "Boursier", "Non-boursier"))
+nonresponse_plot <- ggplot2::ggplot(bourse,
+  ggplot2::aes(x = .data$annee_universitaire, y = .data$taux_reponse_modalite_pct, fill = .data$statut_bourse)) +
+  ggplot2::geom_col(position = "dodge", na.rm = TRUE) +
+  ggplot2::scale_y_continuous(limits = c(0, 100)) + ggplot2::labs(x = NULL,
+    y = "Répondants / invités de la catégorie (%)", fill = "Statut fictif",
+    title = "Participation selon le statut boursier observé") + ggplot2::theme_minimal()
+participation_plot
+satisfaction_plot
+nonresponse_plot
+```
+
+## Restitution métier : résultat, portée et action proposée
+
+| Constat issu de l'exploitation | Interprétation | Proposition pour un dispositif réel, à instruire |
+|---|---|---|
+| Participation et couverture numérique diffèrent | Une réponse reçue ne garantit pas une réponse valide à chaque item | Suivre les invitations, réponses partielles et exclusions avant de lire la satisfaction |
+| La composition des répondants peut différer de celle des invités | Une participation élevée ne suffit pas à établir la représentativité | Examiner accessibilité et calendrier ; tester des relances ciblées sans préjuger de l'efficacité d'un redressement |
+| Les trois items ne constituent pas une échelle validée | Un score global construit par moyenne serait mal justifié | Conserver les dimensions séparées ou concevoir un instrument psychométrique dédié |
+| Tous les diplômes ne sont pas observables à six mois au gel | Les cohortes récentes ne peuvent pas entrer dans les non-réponses | Afficher l'éligibilité et comparer des horizons identiques |
+| Études, emploi hors études et emploi pendant études ont des champs différents | Un unique « taux d'insertion » masquerait ces populations | Présenter ensemble couverture, distribution des situations et dénominateurs |
+
+Ces propositions concernent la méthode et la collecte. Elles ne prescrivent
+aucune intervention sur une formation ou sur des personnes à partir de résultats
+fictifs. Aucune relance ni action externe n'est réalisée.
+
+## Exports, traçabilité et conservation des sources
+
+```{r}
+out <- output_path("enquetes")
+fs::dir_create(out)
+sources <- c(input_files, here::here("R", "surveys", "analyse_surveys.R"),
+  here::here("R", "quality", "check_quality.R"),
+  here::here("R", "analysis", "descriptive.R"),
+  here::here("docs", "protocole_enquete.md"), here::here("docs", "questionnaires.md"),
+  here::here("docs", "dictionnaire_indicateurs.md"),
+  here::here("notebooks", "07_evaluation_formations.qmd"), here::here("renv.lock"))
+source_manifest <- data.frame(fichier = as.character(fs::path_rel(sources, start = here::here())),
+  md5 = unname(tools::md5sum(sources)))
+tables <- list(evaluation_annuelle = eval_year, evaluation_cumulee = eval_total,
+  evaluation_formation = eval_formation, distribution_globale = distribution,
+  non_reponse_caracteristiques = nonresponse, relations_items = item_relations,
+  eligibilite_diplomes = eligibility, devenir_cohortes = future,
+  devenir_cumule = future_total, manifeste_sources = source_manifest)
+for (name in names(tables)) utils::write.csv(tables[[name]],
+  fs::path(out, paste0(name, ".csv")), row.names = FALSE, na = "", fileEncoding = "UTF-8")
+saveRDS(list(tables = tables, metadata = input$metadata, session = sessionInfo()),
+  fs::path(out, "analyse_enquetes.rds"))
+plots <- list(participation = participation_plot, satisfaction = satisfaction_plot,
+  non_reponse_bourse = nonresponse_plot)
+for (name in names(plots)) ggplot2::ggsave(fs::path(out, paste0(name, ".png")),
+  plots[[name]], width = 9, height = 5, dpi = 160)
+stopifnot(identical(hash_before, tools::md5sum(input_files)))
+```
+
+Les sources restent inchangées. Les sorties techniques comprennent les
+dénominateurs et les motifs d'exclusion ; elles ne constituent pas encore
+le contrat d'export Power BI. Aucun package d'enquête ou de psychométrie
+supplémentaire n'a été nécessaire pour ces statistiques non pondérées.
+
+```{r}
+sessionInfo()
+```

@@ -1,0 +1,211 @@
+---
+title: "03 — Contrôle qualité des données synthétiques"
+subtitle: "Démonstrateur personnel indépendant de l'UPEC — audit sans correction"
+lang: fr
+date: 2026-10-18
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+  error: false
+  cache: false
+---
+
+## Finalité et périmètre
+
+Ce notebook audite les sauvegardes brutes de la base cohérente et de la copie
+contenant des anomalies contrôlées. Il ne nettoie aucune table et ne régénère
+aucune observation. Les données sont entièrement synthétiques et ne décrivent
+pas la population réelle de l'UPEC.
+
+Les fonctions métier sont dans `R/quality/check_quality.R`. La conformité signifie
+uniquement que les contrôles de cette version ne détectent pas d'écart. Elle
+ne constitue pas une garantie universelle de qualité ni une validation de la
+plausibilité de toutes les hypothèses de simulation.
+
+## Importation et traçabilité des sources
+
+```{r}
+#| label: sources
+knitr::opts_knit$set(root.dir = here::here())
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "data", "raw_storage.R"))
+source(here::here("R", "quality", "check_quality.R"))
+raw_files <- fs::dir_ls(data_path("raw"), type = "file", all = TRUE)
+raw_hash_before <- tools::md5sum(raw_files)
+raw <- load_raw_dataset()
+stopifnot(isTRUE(renv::status()$synchronized))
+source_files <- c(raw_files,
+  here::here("R", "quality", "check_quality.R"),
+  here::here("config", "simulation.R"), here::here("renv.lock"))
+source_manifest <- data.frame(
+  fichier = as.character(fs::path_rel(source_files, start = here::here())),
+  octets = as.numeric(file.info(source_files)$size),
+  md5 = unname(tools::md5sum(source_files)), stringsAsFactors = FALSE
+)
+execution_utc <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+knitr::kable(source_manifest)
+```
+
+Les contrôles utilisent la configuration embarquée dans les métadonnées de
+chaque base, avec son gel d'observation fixe. L'horodatage UTC décrit seulement
+l'exécution de l'audit ; il ne modifie aucun paramètre de simulation. Les
+empreintes identifient les fichiers effectivement audités et le code utilisé.
+
+## Exécution des contrôles et bilan
+
+```{r}
+#| label: controles
+reports <- list(
+  coherente = check_quality(raw$dataset, label = "coherente"),
+  anomalies = check_quality(raw$anomalies, label = "avec_anomalies")
+)
+bilan <- do.call(rbind, lapply(names(reports), function(name) {
+  report <- reports[[name]]
+  data.frame(variante = name, verdict = report$metadata$verdict,
+    controles_table_champ = nrow(report$checks),
+    controles_non_conformes = sum(report$checks$statut == "non_conforme"),
+    controles_non_executes = sum(report$checks$statut == "non_execute"),
+    non_comparaisons = sum(report$checks$n_non_evaluees),
+    alertes_detaillees = nrow(report$details), stringsAsFactors = FALSE)
+}))
+knitr::kable(bilan)
+```
+
+Une alerte **bloquante** indique un écart au contrat de données ou au protocole.
+Une colonne absente ou d'un mauvais type bloque les règles qui en dépendent :
+elles sont marquées `non_execute`, jamais conformes par défaut. Pour les règles
+croisant deux tables, les références non résolues ou ambiguës ne sont pas
+comparées ; leur nombre est explicite. `non_comparaisons` est une somme par
+contrôle, pas un nombre de personnes distinctes.
+
+Les lignes sont numérotées dans l'ordre du fichier brut importé. Elles doivent
+être interprétées avec la variante, la table, la clé et l'empreinte du fichier.
+Les doublons signalent les lignes originales et leurs copies pour rendre
+l'ambiguïté visible, sans choisir automatiquement la ligne à conserver.
+
+## Règles contrôlées
+
+Les contrôles portent sur : schémas et types, champs obligatoires, clés primaires,
+unités métier uniques, domaines, motifs de valeurs manquantes, références,
+dates d'inscription et de résultat, moyennes et ECTS, niveaux et diplômes,
+transitions annuelles, censure de dernière année, fenêtres et complétude des
+enquêtes, éligibilité et exhaustivité des invitations au devenir.
+
+::: {.callout-note collapse="true"}
+## Catalogue complet des contrôles de la base cohérente
+
+```{r}
+#| label: catalogue
+catalogue <- unique(reports$coherente$checks[c("regle", "table", "champ", "severite", "description")])
+knitr::kable(catalogue)
+```
+:::
+
+## Valeurs manquantes : inventaire sans imputation
+
+::: {.callout-note collapse="true"}
+## Champs comportant des NA dans la base cohérente
+
+```{r}
+#| label: manquants
+missing <- reports$coherente$missing
+knitr::kable(missing[missing$n_manquants > 0, ])
+```
+:::
+
+Les NA ne sont pas tous des défauts : un résultat inconnu masque sa moyenne,
+ses ECTS et sa date ; « non concerné » est distinct d'une non-réponse d'item ;
+l'emploi pendant les études n'est pas applicable hors études. Les motifs doivent
+être cohérents avec ces absences. Les non-répondants aux enquêtes restent dans
+les invitations et ne sont pas transformés en réponses négatives.
+
+## Alertes de la copie altérée
+
+```{r}
+#| label: synthese-alertes
+alerts <- reports$anomalies$details
+alert_summary <- as.data.frame(table(alerts$regle), stringsAsFactors = FALSE)
+names(alert_summary) <- c("regle", "n_alertes")
+knitr::kable(alert_summary)
+```
+
+::: {.callout-note collapse="true"}
+## Journal complet des alertes
+
+```{r}
+#| label: alertes-detaillees
+knitr::kable(alerts)
+```
+:::
+
+Un défaut peut déclencher plusieurs règles, et un doublon concerne plusieurs
+lignes. Le nombre d'alertes ne doit donc pas être comparé directement au nombre
+d'injections comme s'il s'agissait de la même unité.
+
+## Rapprochement avec les anomalies injectées
+
+```{r}
+#| label: detection
+detection <- match_quality_injections(reports$anomalies, raw$issues)
+detection_summary <- stats::aggregate(
+  cbind(injections = rep(1L, nrow(detection)), detectees = as.integer(detection$detectee)),
+  by = list(type = detection$type), FUN = sum
+)
+knitr::kable(detection_summary)
+```
+
+**`r sum(detection$detectee)` injections sur `r nrow(detection)`** sont repérées
+par leur règle cible, dans la table, la ligne et le champ annoncés. Ce résultat
+mesure la détection de ce jeu d'anomalies connu ; il ne prouve pas que toutes les
+erreurs possibles seraient détectées sur d'autres données.
+
+La base cohérente produit **`r nrow(reports$coherente$details)` alertes** sous
+ces contrôles. La copie altérée en produit
+**`r nrow(reports$anomalies$details)`**. Les règles non exécutées ou les lignes
+non comparées restent visibles dans le bilan et les exports.
+
+## Exports et intégrité des données brutes
+
+```{r}
+#| label: exports
+fs::dir_create(output_path("qualite"))
+for (name in names(reports)) {
+  report <- reports[[name]]
+  for (component in c("checks", "details", "missing")) {
+    utils::write.csv(report[[component]],
+      output_path("qualite", paste0(name, "_", component, ".csv")),
+      row.names = FALSE, na = "", fileEncoding = "UTF-8")
+  }
+}
+exports <- list(bilan = bilan, catalogue_controles = catalogue,
+  detection_injections = detection, manifeste_sources = source_manifest)
+for (name in names(exports)) {
+  utils::write.csv(exports[[name]], output_path("qualite", paste0(name, ".csv")),
+    row.names = FALSE, na = "", fileEncoding = "UTF-8")
+}
+saveRDS(list(rapports = reports, detection = detection, sources = source_manifest,
+  execution_utc = execution_utc, session = capture.output(sessionInfo())),
+  output_path("qualite", "rapport_qualite.rds"), version = 3)
+stopifnot(
+  identical(fs::dir_ls(data_path("raw"), type = "file", all = TRUE), raw_files),
+  identical(tools::md5sum(raw_files), raw_hash_before)
+)
+cat("Contrôle qualité terminé ; fichiers bruts inchangés.\n")
+```
+
+Le dossier `outputs/qualite/` contient les dix tableaux CSV, le rapport RDS et
+le rendu HTML. Aucun objet brut ou analytique n'est corrigé ici. La prochaine
+étape définira et tracera les traitements des anomalies avant comparaison
+avant/après et préparation des tables analytiques.
+
+## Environnement d'exécution
+
+```{r}
+#| label: session
+sessionInfo()
+```

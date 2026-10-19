@@ -1,0 +1,235 @@
+---
+title: "02 — Importation et description initiale"
+subtitle: "Données synthétiques — démonstrateur personnel indépendant de l'UPEC"
+lang: fr
+date: 2026-10-18
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+  error: false
+  cache: false
+---
+
+## Objet et précautions de lecture
+
+Ce notebook importe les sauvegardes de l'étape 14, sans régénérer les données.
+Il décrit leur structure, leurs types, leurs modalités et leurs distributions
+initiales. Aucune donnée n'est nettoyée ou imputée. Toutes les observations sont
+fictives ; aucun résultat ne décrit la population réelle de l'UPEC.
+
+La base cohérente est la source de cette description. La copie avec anomalies
+et son journal restent disponibles pour le contrôle qualité de l'étape 16.
+Les descriptions ci-dessous ne constituent pas ce rapport de qualité complet.
+
+## Importation contrôlée
+
+```{r}
+#| label: importation
+knitr::opts_knit$set(root.dir = here::here())
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "data", "raw_storage.R"))
+source(here::here("R", "data", "describe_import.R"))
+raw_files <- fs::dir_ls(data_path("raw"), type = "file", all = TRUE)
+hash_before <- tools::md5sum(raw_files)
+raw <- load_raw_dataset()
+dataset <- raw$dataset
+stopifnot(
+  identical(dataset$metadata$provenance, "entierement_synthetique_non_officiel"),
+  !dataset$metadata$donnees_personnelles_reelles,
+  !dataset$metadata$anomalies_injectees
+)
+status <- renv::status()
+stopifnot(isTRUE(status$synchronized))
+tables <- dataset[vapply(dataset, is.data.frame, logical(1))]
+cfg <- dataset$metadata$config
+knitr::kable(raw$manifest[c("fichier", "n_etudiants", "n_inscriptions", "n_anomalies", "md5")])
+```
+
+Les empreintes du manifeste sont vérifiées avant la lecture des objets RDS.
+Leur format conserve les dates, entiers, booléens et valeurs manquantes.
+
+## Dimensions et types
+
+```{r}
+#| label: inventaires
+inventory <- import_table_inventory(dataset)
+variables <- import_variable_inventory(dataset)
+knitr::kable(inventory)
+knitr::kable(as.data.frame(table(variables$type)),
+             col.names = c("Type R", "Nombre de variables dans les tables"))
+```
+
+La base comprend **`r nrow(dataset$etudiants)` étudiants distincts** et
+**`r nrow(dataset$inscriptions)` inscriptions principales** sur trois années.
+Les lignes des autres tables correspondent à d'autres unités : décisions,
+transitions, invitations, réponses ou diplômes. Leur somme n'est pas un effectif
+d'étudiants. Une personne peut apparaître dans plusieurs années.
+
+::: {.callout-note collapse="true"}
+## Détail des types et valeurs manquantes par variable
+
+```{r}
+#| label: variables-detail
+knitr::kable(variables, digits = 2)
+```
+
+Le nombre de valeurs distinctes exclut les `NA`. Une couverture nulle ou faible
+demande une lecture métier avant de conclure à une anomalie. Par exemple, certains
+motifs ne sont renseignés que lorsque la variable associée est manquante.
+:::
+
+## Aperçu avec glimpse()
+
+::: {.callout-note collapse="true"}
+## Structure des onze tables
+
+```{r}
+#| label: glimpse
+for (name in names(tables)) {
+  cat("\nTABLE :", name, "\n")
+  dplyr::glimpse(tables[[name]], width = 100)
+}
+```
+:::
+
+## Résumés avec skimr::skim()
+
+::: {.callout-note collapse="true"}
+## Profils par type de variable
+
+```{r}
+#| label: skim
+for (name in names(tables)) {
+  cat("\nTABLE :", name, "\n")
+  print(skimr::skim(tables[[name]]))
+}
+```
+
+Les résumés portent sur les valeurs observées. Les identifiants et leurs
+longueurs ne sont pas des caractéristiques statistiques des étudiants.
+Les motifs conditionnels et dates non applicables sont à interpréter avec le
+dictionnaire ; aucune valeur manquante n'est remplacée ici.
+:::
+
+## Modalités initiales
+
+```{r}
+#| label: modalites
+student_modalities <- import_modalities(dataset$etudiants,
+  c("type_bac", "parcours_anterieur"), cfg$diffusion$seuil_minimum_taux)
+enrollment_modalities <- import_modalities(dataset$inscriptions,
+  c("annee_universitaire", "niveau", "boursier"), cfg$diffusion$seuil_minimum_taux)
+knitr::kable(student_modalities, digits = 2,
+  caption = "Caractéristiques au niveau étudiant ; NA conservés au dénominateur")
+knitr::kable(enrollment_modalities, digits = 2,
+  caption = "Modalités au niveau inscription annuelle ; une personne peut compter plusieurs fois")
+```
+
+`NA` désigne une valeur manquante, pas une modalité négative. Le statut boursier
+est annuel, contrairement à l'identifiant stable de la personne. Les pourcentages
+de chaque variable utilisent toutes les lignes de sa table comme dénominateur,
+y compris ses valeurs manquantes ; ils ne doivent pas être additionnés entre variables.
+
+## Distribution initiale de la validation annuelle
+
+```{r}
+#| label: validation
+validation <- import_validation_summary(dataset$inscriptions, dataset$resultats,
+  cfg$diffusion$seuil_minimum_taux)
+knitr::kable(validation, digits = 2)
+```
+
+La validation annuelle suit la décision finale après seconde session. Elle est
+distincte de la diplomation. Le taux de validation utilise uniquement les décisions
+connues (`oui` et `non`). La couverture et la part d'inconnus utilisent toutes
+les inscriptions éligibles, actives au gel annuel. La borne basse utilise les
+validations sur toutes ces inscriptions, sans convertir les inconnus en échecs.
+Les taux dont le dénominateur est nul ou inférieur à 10 sont affichés `NA`.
+Une ligne de résultat absente est comptée explicitement dans
+`n_sans_ligne_resultat`, et dans la couverture inconnue ; elle n'est pas imputée.
+
+```{r}
+#| label: fig-validation-initiale
+#| fig-cap: "Décisions annuelles simulées par année — effectifs d'inscriptions, pas de personnes distinctes sur trois ans"
+plot_data <- validation |>
+  dplyr::filter(.data$annee_universitaire != "Ensemble des inscriptions") |>
+  dplyr::select("annee_universitaire", "n_validees", "n_non_validees", "n_inconnues") |>
+  tidyr::pivot_longer(cols = dplyr::starts_with("n_"), names_to = "decision", values_to = "effectif")
+plot_data$decision <- factor(plot_data$decision,
+  levels = c("n_validees", "n_non_validees", "n_inconnues"),
+  labels = c("Validée", "Non validée", "Inconnue"))
+figure <- ggplot2::ggplot(plot_data,
+  ggplot2::aes(x = .data$annee_universitaire, y = .data$effectif, fill = .data$decision)) +
+  ggplot2::geom_col(width = 0.65) +
+  ggplot2::scale_fill_manual(values = c("Validée" = "#26756C", "Non validée" = "#C57836", "Inconnue" = "#8B929A")) +
+  ggplot2::labs(x = "Année universitaire", y = "Inscriptions principales", fill = "Décision annuelle",
+    caption = "Données entièrement synthétiques ; démonstrateur indépendant de l'UPEC") +
+  ggplot2::theme_minimal(base_size = 12)
+figure
+```
+
+## Premières observations, sans conclusion causale
+
+```{r}
+#| label: constats-calcules
+total <- validation[validation$annee_universitaire == "Ensemble des inscriptions", ]
+student_missing <- sum(is.na(dataset$etudiants$type_bac))
+mean_missing <- sum(is.na(dataset$resultats$moyenne_annuelle))
+```
+
+- La validation est connue pour **`r total$n_decisions_connues` inscriptions sur
+  `r total$n_inscriptions`**, soit une couverture de
+  **`r format(round(total$couverture_pct, 2), decimal.mark = ",")` %**.
+- **`r total$n_inconnues` décisions** sont inconnues et
+  **`r total$n_sans_ligne_resultat` inscriptions** sont sans ligne de résultat.
+  Ces deux notions doivent être distinguées lors du contrôle qualité.
+- Le type de bac est manquant pour **`r student_missing` personnes**.
+  La moyenne annuelle est manquante pour **`r mean_missing` inscriptions** ; le
+  mécanisme de simulation masque la moyenne lorsque la décision est inconnue.
+- Les écarts entre années reflètent une population simulée ouverte, avec entrées,
+  sorties et niveaux différents. Ils ne démontrent ni amélioration pédagogique,
+  ni effet d'une formation ou d'une caractéristique individuelle.
+
+Ces constats concernent cette réalisation du simulateur. Les relations ont été
+programmées et ne constituent pas des observations empiriques sur l'UPEC.
+Les comparaisons détaillées par formation, les parcours et les modèles seront
+traités après contrôle qualité et préparation analytique.
+
+## Exports descriptifs et préservation du brut
+
+```{r}
+#| label: exports
+fs::dir_create(output_path("importation"))
+exports <- list(inventaire_tables = inventory, inventaire_variables = variables,
+  modalites_etudiants = student_modalities, modalites_inscriptions = enrollment_modalities,
+  validation_initiale = validation)
+for (name in names(exports)) {
+  utils::write.csv(exports[[name]], output_path("importation", paste0(name, ".csv")),
+    row.names = FALSE, na = "", fileEncoding = "UTF-8")
+}
+ggplot2::ggsave(output_path("importation", "distribution_validation.png"),
+  plot = figure, width = 9, height = 5, dpi = 160)
+stopifnot(
+  identical(fs::dir_ls(data_path("raw"), type = "file", all = TRUE), raw_files),
+  identical(tools::md5sum(raw_files), hash_before),
+  identical(dataset, raw$dataset)
+)
+cat("Fichiers bruts et objet importé inchangés après description.\n")
+```
+
+Les cinq tableaux CSV et le graphique sont dans `outputs/importation/`, exclus
+de Git. Ils sont des résultats descriptifs initiaux ; les données brutes restent
+inchangées. Le manifeste vérifie l'intégrité des fichiers, pas la totalité de leur
+qualité métier, qui fera l'objet du notebook 03.
+
+## Environnement
+
+```{r}
+#| label: session
+sessionInfo()
+```

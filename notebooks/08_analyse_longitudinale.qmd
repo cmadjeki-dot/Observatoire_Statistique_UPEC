@@ -1,0 +1,230 @@
+---
+title: "08 — Cohortes et parcours longitudinaux"
+subtitle: "Panel entièrement synthétique — projet personnel indépendant de l'UPEC"
+lang: fr
+date: 2026-10-19
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+  error: false
+  cache: false
+---
+
+## Questions et populations
+
+Nous suivons les premières inscriptions **observées en L1**, puis leur présence
+et leur niveau au cours des seules années disponibles. Une première apparition
+en L2, L3, M1 ou M2 ne constitue pas une entrée L1 ; elle appartient à une
+population déjà avancée dans le cursus. Une première observation en L1 ne
+prouve pas une première inscription dans l'enseignement supérieur.
+
+Les transitions I05 portent sur les inscriptions de départ présentes, sorties
+incluses au dénominateur. Le suivi de présence conserve au contraire l'effectif
+initial de la cohorte, même lorsqu'une personne n'est plus inscrite. Ces deux
+dénominateurs répondent à des questions différentes. Tous les résultats sont
+synthétiques et ne décrivent pas les étudiants réels de l'UPEC.
+
+## Sources et reconstruction indépendante
+
+```{r}
+knitr::opts_knit$set(root.dir = here::here())
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "analysis", "descriptive.R"))
+source(here::here("R", "analysis", "longitudinal.R"))
+source(here::here("R", "quality", "check_quality.R"))
+stopifnot(isTRUE(renv::status()$synchronized))
+input_files <- c(fs::dir_ls(data_path("raw"), type = "file", all = TRUE),
+  fs::dir_ls(data_path("processed"), type = "file", all = TRUE))
+hash_before <- tools::md5sum(input_files)
+input <- load_descriptive_source()
+dataset <- setNames(lapply(names(quality_schema()), function(name)
+  readRDS(data_path("processed", paste0(name, ".rds")))), names(quality_schema()))
+dataset$metadata <- input$metadata
+quality <- check_quality(dataset, label = "sources_longitudinales")
+stopifnot(identical(quality$metadata$verdict, "conforme"))
+panel <- prepare_longitudinal(input$data, dataset$decisions_diplome, input$metadata$config$annees)
+x <- panel$inscriptions
+first <- panel$premieres_observations
+```
+
+Les relations annuelles sont reconstruites avec la clé étudiant et l'année
+suivante, puis comparées aux identifiants et aux états déjà stockés. Une
+discordance bloque l'analyse. La classification distingue passage, redoublement,
+réorientation, poursuite intercycle, sortie observée, autre transition et fin
+de panel non observable. Les états d'une année n'utilisent pas une éventuelle
+réinscription deux ans plus tard pour effacer une absence d'un an.
+
+## Cohortes et horizons réellement disponibles
+
+```{r}
+first_counts <- dplyr::count(first, .data$premiere_annee, .data$premier_niveau, name = "n_etudiants")
+knitr::kable(first_counts)
+follow <- summarise_cohort_followup(panel$suivi_l1)
+knitr::kable(follow, digits = 2)
+```
+
+Les cohortes L1 comptent `r dplyr::n_distinct(panel$suivi_l1$id_etudiant)` personnes.
+Les autres `r sum(first$premier_niveau != "L1")` étudiants ne sont pas reclassés
+en entrants L1. L'horizon 0 désigne l'inscription initiale, l'horizon 1 l'année
+suivante et l'horizon 2 la deuxième année après cette inscription.
+
+La cohorte 2023-2024 dispose de trois observations annuelles possibles et de
+deux transitions ; celle de 2024-2025 de deux observations et d'une transition ;
+celle de 2025-2026 d'une seule observation et d'aucune transition. Les durées
+non observées ne sont pas complétées par des zéros. La présence à horizon 0
+vaut 100 % par construction et ne constitue pas un résultat de persévérance.
+
+## Comparaison à durée de suivi égale
+
+```{r}
+equal_horizon <- follow[follow$horizon == 1L, ]
+knitr::kable(equal_horizon[c("cohorte_l1", "horizon", "n_cohorte_initiale", "n_presents",
+  "n_absents_observes", "presence_pct")], digits = 2)
+```
+
+Seules les cohortes 2023-2024 et 2024-2025 peuvent être comparées à horizon 1.
+Les différences restent descriptives : les compositions et les tirages de la
+simulation peuvent varier. La cohorte 2025-2026 ne reçoit aucun taux de présence
+à un an. Un taux n'est pas diffusé si son dénominateur est inférieur à dix.
+
+Une absence dans la grille signifie absence de cette année dans le champ
+observé, pas abandon définitif. La grille conserve les identifiants : si une
+personne revient après une année absente, elle est de nouveau comptée présente.
+Ce cas est vérifié par un test construit indépendamment du simulateur, même si
+le simulateur actuel ne prévoit pas de réentrée après sortie.
+
+## Transitions annuelles et transitions des cohortes L1
+
+```{r}
+transitions <- describe_transitions(x)
+l1 <- x[!is.na(x$cohorte_l1), ]
+cohort_transitions <- describe_transitions(l1, groups = c("cohorte_l1", "annee_universitaire"))
+knitr::kable(transitions, digits = 2)
+knitr::kable(cohort_transitions, digits = 2)
+```
+
+Le total des départs observables est `r sum(x$transition_observable)` inscriptions.
+Les transitions des cohortes L1 n'ont pour dénominateur que leurs membres
+présents à l'année de départ. Les personnes déjà absentes ne redeviennent pas
+des sorties annuelles supplémentaires. Les parts des six états totalisent
+100 % par groupe lorsque le dénominateur permet la diffusion.
+
+La poursuite L3 vers M1 après validation est distinguée du passage et de la
+réorientation. Un maintien au même niveau après résultat inconnu reste dans
+« autre », sans être transformé en redoublement.
+
+## Matrices de niveaux et sortie du champ
+
+```{r}
+matrix <- longitudinal_matrix(x)
+knitr::kable(matrix, digits = 2)
+```
+
+Chaque ligne décrit un arc réellement observé entre niveau de départ et niveau
+suivant. `absence_observee` est une destination annuelle, pas un état absorbant
+d'abandon. Les cellules non listées ont un effectif nul. Les pourcentages se
+rapportent à toutes les inscriptions du niveau de départ de la même année,
+y compris celles sans inscription suivante. Les matrices ne portent pas sur
+les seuls réinscrits et n'extrapolent aucune transition après 2025-2026.
+
+## Sorties et diplomation : deux informations distinctes
+
+```{r}
+exits <- dplyr::count(x[x$etat_transition == "sortie_observee", ],
+  .data$annee_universitaire, .data$niveau, .data$attribution_diplome, name = "n_sorties")
+knitr::kable(exits)
+```
+
+Une attribution `oui` indique une décision de diplôme sur l'inscription de
+départ, pas une supposition tirée de l'absence suivante. `non_applicable`
+désigne un niveau non terminal, `inconnu` une décision terminale inconnue.
+Un diplômé de M2 sortant du champ n'est pas un décrocheur. Une sortie sans
+diplôme observé ne prouve pas davantage un abandon de l'enseignement supérieur.
+Ces tableaux ne mesurent pas un taux de diplomation à trois ans d'une cohorte.
+
+## Censure de fin de panel
+
+```{r}
+censoring <- dplyr::summarise(dplyr::group_by(x, .data$annee_universitaire),
+  n_inscriptions = dplyr::n(), n_transitions_observables = sum(.data$transition_observable),
+  n_transitions_censurees = sum(!.data$transition_observable), .groups = "drop")
+knitr::kable(censoring)
+stopifnot(sum(matrix$effectif) == sum(x$transition_observable),
+  all(x$etat_transition[!x$transition_observable] == "non_observable"),
+  all(is.na(x$id_inscription_suivante[!x$transition_observable])))
+```
+
+Les `r sum(!x$transition_observable)` inscriptions de 2025-2026 ont une transition
+suivante censurée. Leur résultat annuel peut être connu au gel de septembre
+2026, mais cela ne rend pas disponible leur inscription de 2026-2027.
+Aucune sortie n'est déduite de cette absence de suivi.
+
+## Graphiques et lecture métier
+
+```{r}
+#| fig-width: 9
+#| fig-height: 5
+presence_plot <- ggplot2::ggplot(follow, ggplot2::aes(x = .data$horizon, y = .data$presence_pct,
+  colour = .data$cohorte_l1, group = .data$cohorte_l1)) +
+  ggplot2::geom_line(data = follow[follow$cohorte_l1 != "2025-2026", ], na.rm = TRUE) +
+  ggplot2::geom_point(size = 2, na.rm = TRUE) +
+  ggplot2::scale_x_continuous(breaks = 0:2) +
+  ggplot2::scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, 25)) +
+  ggplot2::labs(x = "Années après la première observation en L1",
+    y = "Présents / cohorte initiale (%)", colour = "Cohorte observée",
+    title = "Présence dans le champ synthétique — horizons disponibles") + ggplot2::theme_minimal()
+matrix_plot <- ggplot2::ggplot(matrix,
+  ggplot2::aes(x = .data$niveau_suivant, y = .data$niveau, fill = .data$part_ligne_pct)) +
+  ggplot2::geom_tile() + ggplot2::facet_wrap(~ annee_universitaire) +
+  ggplot2::scale_fill_gradient(low = "#EDF6F9", high = "#22577A", limits = c(0, 100)) +
+  ggplot2::labs(x = "Niveau ou absence l'année suivante", y = "Niveau de départ", fill = "Part (%)",
+    title = "Transitions annuelles — cellules observées") + ggplot2::theme_minimal() +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 30, hjust = 1))
+presence_plot
+matrix_plot
+```
+
+Pour le pilotage, lire ensemble effectif initial, présence à horizon égal,
+transitions parmi les présents et attribution des diplômes. L'absence d'un
+étudiant dans le champ demanderait d'autres sources pour connaître sa situation.
+Les données synthétiques ne justifient ni classement des formations ni action
+individuelle ; elles illustrent les précautions d'une analyse de parcours.
+
+## Exports et intégrité
+
+```{r}
+out <- output_path("longitudinal")
+fs::dir_create(out)
+sources <- c(input_files, here::here("R", "analysis", "longitudinal.R"),
+  here::here("R", "analysis", "descriptive.R"), here::here("R", "quality", "check_quality.R"),
+  here::here("docs", "protocole_statistique.md"),
+  here::here("notebooks", "08_analyse_longitudinale.qmd"), here::here("renv.lock"))
+source_manifest <- data.frame(fichier = as.character(fs::path_rel(sources, start = here::here())),
+  md5 = unname(tools::md5sum(sources)))
+tables <- list(premieres_observations = first_counts, suivi_cohortes = follow,
+  comparaison_horizon_1 = equal_horizon, transitions_annuelles = transitions,
+  transitions_cohortes_l1 = cohort_transitions, matrices_niveaux = matrix,
+  sorties_diplomes = exits, censure = censoring, manifeste_sources = source_manifest)
+for (name in names(tables)) utils::write.csv(tables[[name]],
+  fs::path(out, paste0(name, ".csv")), row.names = FALSE, na = "", fileEncoding = "UTF-8")
+saveRDS(list(tables = tables, metadata = input$metadata, session = sessionInfo()),
+  fs::path(out, "analyse_longitudinale.rds"))
+for (name in c("presence_cohortes", "matrices_niveaux")) {
+  plot <- if (name == "presence_cohortes") presence_plot else matrix_plot
+  ggplot2::ggsave(fs::path(out, paste0(name, ".png")), plot, width = 9, height = 5, dpi = 160)
+}
+stopifnot(identical(hash_before, tools::md5sum(input_files)))
+```
+
+Le code métier reste dans `R/analysis/longitudinal.R`, sans duplication des
+fonctions du notebook 05. Les fichiers sources sont préservés. Aucun modèle
+de survie, hypothèse d'absence absorbante ou suivi au-delà du panel n'est ajouté.
+
+```{r}
+sessionInfo()
+```

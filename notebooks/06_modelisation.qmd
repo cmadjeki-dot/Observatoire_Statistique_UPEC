@@ -1,0 +1,296 @@
+---
+title: "06 — Modélisation exploratoire de la réussite"
+subtitle: "Coupe 2023-2024 — démonstrateur personnel indépendant de l'UPEC"
+lang: fr
+date: 2026-10-18
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+  error: false
+  cache: false
+---
+
+## Question, champ et limites d'emblée
+
+Le choix de l'étape 19 a été validé avant estimation. Nous décrivons des
+associations ajustées avec la validation annuelle et évaluons des probabilités
+sur des étudiants non utilisés pour estimer le modèle. La population est la
+coupe initiale 2023-2024 : une inscription par personne, décision connue et
+covariables complètes. Les autres années ne participent ni à l'estimation ni
+au test. Le résultat ne représente donc pas l'ensemble des inscriptions du panel.
+
+Les données sont entièrement synthétiques. Les résultats ne décrivent pas
+l'UPEC réelle, n'estiment aucun effet causal et ne justifient aucune décision
+individuelle sur un étudiant. Le mécanisme de simulation introduit certaines
+relations que l'estimation peut retrouver sans valider une hypothèse empirique.
+
+## Sources contrôlées et sélection
+
+```{r}
+knitr::opts_knit$set(root.dir = here::here())
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "analysis", "descriptive.R"))
+source(here::here("R", "modeling", "model.R"))
+stopifnot(isTRUE(renv::status()$synchronized))
+input_files <- c(fs::dir_ls(data_path("raw"), type = "file", all = TRUE),
+  fs::dir_ls(data_path("processed"), type = "file", all = TRUE))
+hash_before <- tools::md5sum(input_files)
+input <- load_descriptive_source()
+prepared <- prepare_success_model(input$data)
+knitr::kable(as.data.frame(table(prepared$selection$statut)),
+  col.names = c("Statut de sélection", "Effectif"))
+```
+
+Sur les `r nrow(prepared$selection)` inscriptions initiales,
+`r sum(prepared$selection$statut == "resultat_inconnu")` décisions inconnues sont
+écartées sans être transformées en échecs. Parmi les décisions connues,
+`r sum(prepared$selection$statut == "covariable_manquante")` dossiers ont au moins
+une covariable manquante. Le champ final comprend `r nrow(prepared$data)` personnes.
+La sélection est explicite ; `na.fail` empêchera toute suppression supplémentaire
+silencieuse lors de l'estimation.
+
+::: {.callout-note collapse="true"}
+## Comparaison des caractéristiques des inclus et exclus
+
+```{r}
+knitr::kable(prepared$comparaison, digits = 2)
+```
+
+Les pourcentages ont pour dénominateur le groupe de sélection indiqué,
+caractéristique par caractéristique. Les absences de bac ou de bourse restent
+identifiées. Ces comparaisons ne prouvent pas que la sélection est ignorable.
+Le mécanisme aléatoire connu du simulateur ne doit pas être présumé dans des
+données réelles.
+:::
+
+## Spécification et références
+
+Le modèle est un GLM binomial, lien logit. La cible `validation` vaut 1 pour
+`oui`, 0 pour `non`. La formule contient le niveau, trois contrastes de formation
+au sein de leur cycle, le bac, le parcours antérieur et la bourse.
+
+```{r}
+knitr::kable(data.frame(variable = names(prepared$references),
+  reference = unname(prepared$references)))
+```
+
+Les indicatrices FL_B et FL_C comparent les licences à FL_A ; FM_B compare les
+masters à FM_A. Cette construction évite la redondance formation/niveau, sans
+créer de comparaison entre formations qui n'accueillent pas les mêmes niveaux.
+Les coefficients de niveau incluent le changement de référence entre cycles.
+Le modèle suppose des contrastes de formation additifs au sein d'un cycle.
+
+L'année est constante et ne figure pas dans le modèle. Moyenne, ECTS, diplôme,
+transition suivante et réponses d'enquête sont exclus pour éviter une fuite
+d'information ou l'utilisation de variables postérieures à la cible. La coupe
+initiale retire les répétitions par étudiant ; elle ne retire pas la sélection
+antérieure des personnes déjà en niveaux avancés.
+
+## Séparation apprentissage/test et estimation
+
+```{r}
+split <- split_success_model(prepared$data, seed = 20261020L)
+knitr::kable(as.data.frame(table(split$affectations$echantillon,
+  split$affectations$validation)), col.names = c("Échantillon", "Validation", "Effectif"))
+stopifnot(!length(intersect(split$train$id_etudiant, split$test$id_etudiant)))
+model <- fit_success_model(split$train)
+coefficients <- success_coefficients(model)
+diagnostics <- diagnose_success_model(model, split$train)
+evaluation <- evaluate_success_model(model, split)
+```
+
+La séparation est stratifiée sur la cible, environ 80 % / 20 %, avec une graine
+fixe et restauration de l'état aléatoire. Les `r nrow(split$train)` personnes
+d'apprentissage et les `r nrow(split$test)` personnes de test sont disjointes.
+Le rang de la matrice est contrôlé avant estimation. Aucun choix de formule
+ou de modalité de référence n'est guidé par les performances sur le test.
+
+## Coefficients et intervalles de confiance
+
+```{r}
+knitr::kable(coefficients, digits = 4)
+```
+
+Les coefficients sont sur l'échelle du log des cotes. Leur exponentielle est
+un odds ratio, pas un rapport de probabilités. Les IC à 95 % utilisent
+l'approximation de Wald : `exp(coefficient ± 1,96 × erreur standard)`.
+Ils reposent sur les hypothèses du modèle et l'approximation asymptotique,
+sans correction pour comparaisons multiples. L'intercept correspond au profil
+de référence et n'est pas un contraste de formation.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 6
+forest <- coefficients[coefficients$terme != "(Intercept)", ]
+forest_plot <- ggplot2::ggplot(forest,
+  ggplot2::aes(x = stats::reorder(.data$terme, .data$odds_ratio), y = .data$odds_ratio)) +
+  ggplot2::geom_hline(yintercept = 1, linetype = 2, colour = "grey50") +
+  ggplot2::geom_errorbar(ggplot2::aes(ymin = .data$ic95_bas, ymax = .data$ic95_haut), width = 0.2) +
+  ggplot2::geom_point(colour = "#22577A") + ggplot2::scale_y_log10() +
+  ggplot2::coord_flip() + ggplot2::labs(x = NULL, y = "Odds ratio — IC de Wald à 95 %",
+    title = "Associations ajustées dans les données synthétiques") + ggplot2::theme_minimal()
+forest_plot
+```
+
+À covariables du modèle identiques, l'odds ratio associé au bac professionnel
+par rapport au bac général vaut
+`r round(coefficients$odds_ratio[coefficients$terme == "type_bacprofessionnel"], 2)`
+(IC à 95 % :
+`r round(coefficients$ic95_bas[coefficients$terme == "type_bacprofessionnel"], 2)` à
+`r round(coefficients$ic95_haut[coefficients$terme == "type_bacprofessionnel"], 2)`).
+Cette association est illustrée dans une simulation qui programme une relation
+avec le bac ; elle ne mesure pas un effet causal du bac.
+
+Les différences de niveau ne représentent pas l'effet de « faire passer » une
+personne à un niveau supérieur. Les formations et la bourse n'ont pas d'effet
+direct programmé dans l'équation de réussite. Leurs coefficients estimés ne
+deviennent pas pour autant une preuve d'absence ou de présence d'effet réel.
+L'effet individuel latent du simulateur n'est pas disponible comme covariable ;
+les paramètres marginaux ne sont pas nécessairement identiques aux paramètres
+conditionnels programmés.
+
+## Diagnostics sur l'apprentissage
+
+```{r}
+knitr::kable(diagnostics$resume, digits = 5)
+```
+
+Le code bloque en cas d'avertissement d'estimation, de non-convergence, de rang
+déficient, de coefficient non fini ou de probabilité ajustée numériquement
+extrême. La convergence et des erreurs standards modérées sont des éléments
+de diagnostic, pas une preuve mathématique de l'absence de séparation.
+
+Les seuils signalent ici `r diagnostics$resume$n_leviers_signales` leviers et
+`r diagnostics$resume$n_cook_signales` distances de Cook. Le levier maximal vaut
+`r round(max(diagnostics$detail$levier), 4)` et la distance de Cook maximale
+`r round(max(diagnostics$detail$cook), 4)`. Les seuils proportionnels à `1/n`
+peuvent signaler de nombreuses lignes dans un grand échantillon ; le nombre
+d'alertes seul ne mesure pas l'instabilité du modèle.
+
+Les seuils de levier `2p/n`, de distance de Cook `4/n` et de résidu de Pearson
+en valeur absolue supérieur à 3 sont des repères d'investigation, pas des règles
+d'exclusion. Ici `p` est le rang de la matrice. Les distances de Cook d'un GLM
+sont des diagnostics approchés. Les lignes signalées sont conservées ; aucune
+observation n'est retirée pour améliorer le modèle. Les résidus individuels
+binaires ne sont pas supposés normalement distribués.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 5
+residual_plot <- ggplot2::ggplot(diagnostics$detail,
+  ggplot2::aes(x = .data$probabilite, y = .data$residu_pearson)) +
+  ggplot2::geom_point(alpha = 0.12, size = 0.7) +
+  ggplot2::geom_hline(yintercept = 0, linetype = 2) +
+  ggplot2::labs(x = "Probabilité ajustée sur apprentissage", y = "Résidu de Pearson",
+    title = "Résidus binaires — aucune exclusion automatique") + ggplot2::theme_minimal()
+residual_plot
+```
+
+## Performances sur test et calibration
+
+```{r}
+knitr::kable(evaluation$performances, digits = 4)
+knitr::kable(evaluation$calibration, digits = 4)
+```
+
+L'AUC vaut `r round(evaluation$performances$auc[1], 3)` : elle mesure l'ordre des
+scores, avec la validation comme classe positive et une demi-contribution pour
+les ex aequo. Le Brier et la log-loss sont des pertes : plus faibles est préférable.
+La référence constante utilise uniquement la fréquence de réussite apprise sur
+l'apprentissage ; elle n'utilise pas la fréquence du test pour ses prédictions.
+La log-loss borne les probabilités à `[10^-15, 1-10^-15]` pour éviter `log(0)`.
+
+Dans cette simulation, l'AUC reste proche de 0,6 : la discrimination individuelle
+est limitée. Le Brier est de `r round(evaluation$performances$brier[1], 4)` contre
+`r round(evaluation$performances$brier[2], 4)` pour la référence constante, et la
+log-loss de `r round(evaluation$performances$log_loss[1], 4)` contre
+`r round(evaluation$performances$log_loss[2], 4)`. Le gain prédictif est modeste.
+Une calibration moyenne proche de la fréquence observée ne compense pas cette
+faible capacité à distinguer les situations individuelles.
+
+L'écart moyen de calibration est la probabilité prédite moyenne moins la
+fréquence observée. Les groupes de risque utilisent des bornes apprises sur
+l'apprentissage ; les ex aequo restent dans le même groupe, donc les effectifs
+ne sont pas forcément égaux. Les proportions sont masquées sous dix observations.
+Les points du graphique n'ont pas d'intervalle d'incertitude : ils servent à
+une lecture descriptive, pas à un test formel de bonne calibration.
+
+```{r}
+#| fig-width: 7
+#| fig-height: 5
+calibration_plot <- ggplot2::ggplot(evaluation$calibration,
+  ggplot2::aes(x = .data$probabilite_moyenne, y = .data$frequence_observee)) +
+  ggplot2::geom_abline(intercept = 0, slope = 1, linetype = 2) +
+  ggplot2::geom_line(na.rm = TRUE, colour = "#22577A") +
+  ggplot2::geom_point(ggplot2::aes(size = .data$n), na.rm = TRUE) +
+  ggplot2::coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  ggplot2::labs(x = "Probabilité moyenne prédite", y = "Fréquence observée sur test",
+    size = "Effectif", title = "Calibration interne par groupe de risque") + ggplot2::theme_minimal()
+calibration_plot
+```
+
+Cette validation est interne à la coupe 2023-2024 et dépend d'une seule
+séparation fixée à l'avance. Elle ne mesure pas la performance future, ne
+constitue pas une validation externe et ne fournit pas d'IC de performance.
+Les inscrits des années suivantes peuvent être les mêmes personnes : ils ne
+forment pas automatiquement un test indépendant. Aucun seuil de décision
+individuelle n'a été fixé et aucune classification opérationnelle n'est livrée.
+
+## Sauvegardes et portée pour le pilotage
+
+```{r}
+out <- output_path("modelisation")
+fs::dir_create(out)
+sources <- c(input_files, here::here("R", "modeling", "model.R"),
+  here::here("R", "analysis", "descriptive.R"),
+  here::here("docs", "choix_modele_statistique.md"),
+  here::here("notebooks", "06_modelisation.qmd"), here::here("renv.lock"))
+source_manifest <- data.frame(
+  fichier = as.character(fs::path_rel(sources, start = here::here())),
+  md5 = unname(tools::md5sum(sources)))
+tables <- list(coefficients = coefficients, selection = prepared$selection,
+  comparaison_inclus_exclus = prepared$comparaison, affectations = split$affectations,
+  references = data.frame(variable = names(prepared$references), reference = unname(prepared$references)),
+  diagnostics_resume = diagnostics$resume, diagnostics_detail = diagnostics$detail,
+  performances_test = evaluation$performances, calibration_test = evaluation$calibration,
+  predictions_test = evaluation$predictions_test, manifeste_sources = source_manifest)
+for (name in names(tables)) utils::write.csv(tables[[name]],
+  fs::path(out, paste0(name, ".csv")), row.names = FALSE, na = "", fileEncoding = "UTF-8")
+saveRDS(model, fs::path(out, "modele_reussite.rds"))
+saveRDS(list(tables = tables, bornes_risque_train = evaluation$bornes_risque_train,
+  seed = split$seed, metadata = input$metadata, session = sessionInfo()),
+  fs::path(out, "audit_modelisation.rds"))
+plots <- list(odds_ratios = forest_plot, residus = residual_plot, calibration = calibration_plot)
+for (name in names(plots)) ggplot2::ggsave(fs::path(out, paste0(name, ".png")),
+  plots[[name]], width = 9, height = 6, dpi = 160)
+restored <- readRDS(fs::path(out, "modele_reussite.rds"))
+stopifnot(isTRUE(all.equal(as.numeric(stats::predict(restored, split$test, type = "response")),
+  evaluation$predictions_test$probabilite)), identical(hash_before, tools::md5sum(input_files)))
+```
+
+Le RDS contient le modèle d'apprentissage effectivement évalué, sans réestimation
+sur le test. Les identifiants synthétiques permettent de retracer la sélection,
+la séparation et les diagnostics. Les sources brutes et préparées sont inchangées.
+Ces sorties restent dans le dossier de travail exclu de Git.
+
+Pour les responsables, ce modèle illustre comment examiner conjointement des
+caractéristiques disponibles. Il ne suffit pas à comparer la qualité des
+formations, à définir une action ciblée ou à expliquer causalement les écarts.
+Une utilisation réelle demanderait une définition du besoin, des données plus
+riches, une étude des biais et une validation adaptée à la décision envisagée.
+
+## Références méthodologiques et environnement
+
+- [R — GLM et famille binomiale](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/glm.html).
+- [R — intervalles de confiance, méthode de Wald](https://www.stat.ethz.ch/R-manual/R-devel/library/stats/html/confint.html).
+- [R — diagnostics d'influence et leurs approximations pour les GLM](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/influence.measures.html).
+- [Choix du modèle et comparaison des méthodes](../docs/choix_modele_statistique.md).
+
+```{r}
+sessionInfo()
+```

@@ -1,0 +1,232 @@
+---
+title: "09 — Analyse causale : étude de faisabilité"
+subtitle: "Décision méthodologique — aucune estimation d'effet causal"
+lang: fr
+date: 2026-10-19
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+  error: false
+  cache: false
+---
+
+## Décision et périmètre
+
+**Les tables actuelles ne permettent pas d'estimer de façon crédible l'effet
+d'un dispositif universitaire réel.** Aucun tutorat, accompagnement reçu ou
+traitement pédagogique daté n'est enregistré. Les associations observées et
+les relations programmées dans le simulateur ne remplacent pas ce dispositif
+d'identification. Cette conclusion concerne les données présentes et les
+questions envisagées ; elle ne signifie pas qu'une analyse causale sur données
+observationnelles serait impossible par principe.
+
+Le projet est personnel, indépendant de l'UPEC et exclusivement synthétique.
+Aucun ATE, ATT, effet de bourse ou de formation n'est calculé. Les indicateurs
+des notebooks précédents et les performances du GLM restent descriptifs ou
+prédictifs. Aucun nouveau modèle n'est ajusté dans cette étude.
+
+## Association, prédiction et causalité
+
+| Objet | Question | Ce que produit le projet |
+|---|---|---|
+| Association | Les validations diffèrent-elles selon les caractéristiques observées ? | Taux descriptifs et coefficients ajustés du GLM |
+| Prédiction | Le score distingue-t-il les validations de nouveaux étudiants de la même coupe ? | Validation interne sur test du notebook 06 |
+| Causalité | Que changerait une intervention définie, pour la même population, par rapport à une autre stratégie ? | Faisabilité examinée ici ; aucun contraste causal identifié |
+
+Une AUC, un coefficient ajusté ou un intervalle de confiance ne démontre pas
+qu'une intervention modifierait la réussite. La définition d'un effet causal
+demande une intervention et des résultats potentiels correspondants ; son
+identification nécessite des hypothèses supplémentaires sur l'attribution et
+l'observation ([Hernán et Robins, *Causal Inference: What If*](https://miguelhernan.org/whatifbook)).
+
+## Vérification des sources et disponibilités
+
+```{r}
+knitr::opts_knit$set(root.dir = here::here())
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "analysis", "descriptive.R"))
+source(here::here("R", "analysis", "causal_feasibility.R"))
+stopifnot(isTRUE(renv::status()$synchronized))
+input_files <- c(fs::dir_ls(data_path("raw"), type = "file", all = TRUE),
+  fs::dir_ls(data_path("processed"), type = "file", all = TRUE))
+hash_before <- tools::md5sum(input_files)
+input <- load_descriptive_source()
+audit <- audit_causal_feasibility(input$data)
+knitr::kable(audit$disponibilite)
+```
+
+L'inventaire porte sur la table analytique scolaire ; le questionnaire existant
+mesure la **satisfaction vis-à-vis de l'accompagnement**, pas sa réception,
+son intensité ou son attribution. Une mauvaise satisfaction ne constitue donc
+pas une variable de traitement « absence d'accompagnement ».
+
+::: {.callout-note collapse="true"}
+## Inventaire des colonnes effectivement disponibles
+
+```{r}
+knitr::kable(audit$inventaire)
+```
+:::
+
+| Information | Disponibilité et temporalité | Conséquence |
+|---|---|---|
+| Bac et parcours antérieur | Disponibles, bac parfois masqué | Covariables possibles, pas mesure exhaustive des acquis initiaux |
+| Bourse | Indicateur annuel fictif, parfois masqué | Ni montant, ni date de notification/versement, ni règles d'éligibilité |
+| Formation et niveau | Connus à l'inscription annuelle | Niveaux et cycles contraignent les formations possibles ; formation initiale et réorientation sont des expositions différentes |
+| Réussite annuelle | Décision après seconde session ; inconnus distincts | Cible documentée, mais couverture à examiner |
+| Moyenne et ECTS | Construits à partir du résultat dans le simulateur | Ne pas les traiter comme facteurs préalables de la réussite de la même année |
+| Satisfaction | Vague de juin, répondants sélectionnés | Ne mesure pas un traitement reçu ; peut refléter une expérience scolaire déjà en cours |
+| Diplôme et transition suivante | Décisions terminales ou inscriptions ultérieures | Ne sont pas des facteurs préalables de la même validation annuelle |
+| Dispositif, attribution, dose et calendrier | Absents | Aucune comparaison traité/non-traité du dispositif n'est possible |
+| Acquis détaillés, contraintes financières, motivation, contexte pédagogique | Absents ou non représentés | Aucune garantie de contrôle des causes communes dans une application réelle |
+
+## Question causale explicite, proposée pour une extension
+
+Exemple méthodologique : « Parmi les étudiants nouvellement observés en L1,
+quel serait l'effet d'une **offre de tutorat définie en début d'année**,
+comparée à l'absence de cette offre, sur la validation après seconde session ? »
+Cette question ne décrit pas un dispositif existant ni un essai réalisé.
+
+| Composante du protocole cible | Définition proposée | Correspondance aux données actuelles |
+|---|---|---|
+| Population | Étudiants éligibles, nouvellement observés en L1, avant attribution | Première observation L1 identifiable ; autres critères d'éligibilité à définir |
+| Temps zéro | Date commune d'éligibilité et d'attribution de l'offre, avant suivi | Aucune date d'attribution disponible |
+| Stratégies | Offre d'un tutorat précisé : contenu, durée, accès ; versus absence de cette offre | Aucun indicateur d'offre ni de contenu |
+| Attribution | Idéalement tirage randomisé explicite ; sinon mécanisme documenté | Aucun tirage d'attribution de tutorat observé |
+| Suivi | De l'attribution au résultat définitif de l'année | Calendrier scolaire disponible, mais aucun début lié au dispositif |
+| Résultat | Validation annuelle, sans transformer les inconnus en échecs | Décision oui/non/inconnu disponible |
+| Contraste | Différence de probabilités de validation sous offre versus sans offre, dans la population éligible | Non estimable ici |
+| Analyse | Effet de l'offre, distinct de l'effet de participation effective ; suivi des manquants et changements | Non mise en œuvre ; variables essentielles absentes |
+
+L'alignement de l'éligibilité, de l'attribution et du début de suivi évite
+des biais de conception. Le cadre d'essai cible aide à expliciter ces choix,
+sans les rendre observables par simple déclaration ([méthode de l'essai cible](https://www.bmj.com/content/378/bmj-2022-071108)).
+La proposition reste une extension à concevoir et ne modifie pas les tables.
+
+## Hypothèses d'identification et état de vérification
+
+| Hypothèse | Sens pour la question proposée | État dans ce projet |
+|---|---|---|
+| Intervention bien définie et cohérence | La stratégie reçue correspond à la stratégie décrite ; versions du tutorat explicitées | Non satisfait opérationnellement : dispositif absent |
+| Échangeabilité | Attribution indépendante des résultats potentiels, éventuellement conditionnellement aux causes communes mesurées | Non établie : ni attribution ni facteurs de sélection du dispositif disponibles |
+| Positivité | Chaque stratégie est possible dans les profils de la population cible | Non évaluable pour le tutorat absent ; les contrastes de formations ont en plus des contraintes structurelles |
+| Interférences prises en compte | Les effets entre étudiants ou groupes sont absents ou inclus dans la définition de la stratégie | Aucun mécanisme pédagogique de groupe décrit |
+| Temporalité correcte | Covariables antérieures à l'attribution ; suivi débutant à l'attribution | Impossible à vérifier sans date de traitement |
+| Observation et sélection maîtrisées | Résultats inconnus et pertes de suivi traités sous des hypothèses explicites | Valeurs manquantes et censure connues, mais aucune identification causale de leur mécanisme réel |
+| Mesure adéquate et modèle pertinent | Offre, réception et résultat mesurés sans substitutions injustifiées | La satisfaction ne remplace pas l'offre ; aucune estimation autorisée par ce seul inventaire |
+
+Ces hypothèses ne se valident pas par un test de significativité ou par un bon
+score prédictif. Des comptes de cellules peuvent signaler des problèmes de
+support, sans démontrer l'échangeabilité ni la positivité conditionnelle complète.
+
+## Support formation/niveau : contrainte concrète
+
+```{r}
+knitr::kable(audit$support_formation_niveau)
+stopifnot(sum(audit$support_formation_niveau$effectif) == 11000L,
+  all(audit$support_formation_niveau$effectif[audit$support_formation_niveau$hors_cycle] == 0L))
+```
+
+Les licences n'accueillent pas les niveaux M1/M2 et les masters n'accueillent
+pas L1/L2/L3 dans cette simulation. Une comparaison de toutes les formations
+« à niveau identique » demanderait donc des situations impossibles dans le
+champ. Restreindre un contraste à des formations du même cycle pourrait
+améliorer sa définition, mais ne suffirait pas à établir sa causalité.
+Des cellules non nulles ne démontrent pas l'existence de toutes les stratégies
+dans chaque profil pertinent ; les extrapolations d'un modèle ne créent pas
+ce support manquant.
+
+## Ce que le simulateur programme, et ce qu'il ne prouve pas
+
+L'inspection de `R/data/simulate_data.R` et de `config/simulation.R` montre que :
+
+- La validation dépend du niveau, du bac latent, de la reprise d'études et
+  d'un effet individuel persistant non exporté. La formation et la bourse
+  n'entrent pas directement dans cette équation.
+- Le résultat précédent conditionne les transitions, donc les niveaux et la
+  présence observés ultérieurement. Le panel ultérieur sélectionne des parcours.
+- La bourse latente intervient dans la participation aux évaluations ; les
+  scores de satisfaction sont tirés séparément, sans dispositif pédagogique.
+- Les distributions de devenir dépendent du type de diplôme ; cela ne fournit
+  pas un effet causal du diplôme dans une population où son obtention serait manipulée.
+
+L'absence de terme direct dans une équation programmée n'est pas une preuve
+empirique d'absence d'effet de la bourse ou des formations dans le monde réel.
+Inversement, l'effet latent de réussite ne doit pas être déclaré automatiquement
+cause commune de bourse et réussite : le simulateur tire la bourse initiale
+séparément. Une future simulation pourrait définir des interventions sur ses
+équations et produire des contrastes contrefactuels ; ces contrastes seraient
+alors des propriétés du programme sous ses hypothèses, sans validation d'un
+effet dans une université réelle. Aucun calcul de cette nature n'est réalisé ici.
+
+## Graphe hypothétique pour une future offre de tutorat
+
+Le graphe ci-dessous sert à discuter des hypothèses d'une **future étude**.
+Il ne représente ni des relations démontrées par les données ni le mécanisme
+actuel du simulateur, qui ne contient pas cette offre.
+
+```{mermaid}
+flowchart LR
+  X["Caractéristiques avant attribution"] --> A["Offre de tutorat : absente des tables"]
+  X --> Y["Validation annuelle"]
+  U["Facteurs non mesurés : hypothèse"] --> A
+  U --> Y
+  A --> Y
+```
+
+Si les facteurs non mesurés influençaient réellement à la fois l'attribution
+et la validation, un ajustement sur les seules caractéristiques disponibles
+ne suffirait pas. Ce graphe ne désigne pas une liste d'ajustement validée et
+ne permet pas de déduire un effet chiffré.
+
+## Méthodes examinées et décision
+
+| Méthode envisagée | Pourquoi elle ne résout pas les limites actuelles |
+|---|---|
+| Régression ajustée / modèle mixte | Un ajustement ne définit pas l'intervention, ne mesure pas les facteurs absents et ne rend pas les variables postérieures admissibles |
+| Score de propension, appariement, pondération | Exigent une exposition définie, le support et des hypothèses d'échangeabilité ; aucun score n'est calculé ici |
+| Différences de différences | Pas de réforme ou dispositif daté, de groupes d'exposition définis ni d'hypothèse de tendances parallèles justifiée |
+| Discontinuité de régression | Aucune variable de classement et aucun seuil d'attribution documentés ; un indicateur boursier ne fournit pas ce seuil |
+| Variable instrumentale | Aucun instrument avec pertinence et restriction d'exclusion défendables |
+| Modèle longitudinal causal | Les répétitions ne remplacent pas des traitements datés et des historiques suffisants ; présence et niveau dépendent de résultats antérieurs |
+
+**Décision : conserver les résultats précédents comme associations,
+prédictions et descriptions de parcours. Ne produire aucun effet causal.**
+Pour aller plus loin, définir d'abord l'intervention, son attribution et son
+calendrier, les facteurs préalables, les résultats et les règles de suivi.
+Une extension synthétique pourrait comparer des méthodes à une vérité causale
+explicitement programmée, mais demanderait un nouveau protocole et ne
+constituerait pas une preuve concernant l'UPEC.
+
+## Vérifications, exports et traçabilité
+
+```{r}
+out <- output_path("faisabilite_causale")
+fs::dir_create(out)
+sources <- c(input_files, here::here("R", "analysis", "causal_feasibility.R"),
+  here::here("R", "analysis", "descriptive.R"), here::here("R", "data", "simulate_data.R"),
+  here::here("config", "simulation.R"), here::here("docs", "protocole_statistique.md"),
+  here::here("notebooks", "09_analyse_causale.qmd"), here::here("renv.lock"))
+source_manifest <- data.frame(fichier = as.character(fs::path_rel(sources, start = here::here())),
+  md5 = unname(tools::md5sum(sources)))
+tables <- c(audit, list(manifeste_sources = source_manifest))
+for (name in names(tables)) utils::write.csv(tables[[name]],
+  fs::path(out, paste0(name, ".csv")), row.names = FALSE, na = "", fileEncoding = "UTF-8")
+saveRDS(list(tables = tables, decision = "aucun_effet_causal_estime",
+  metadata = input$metadata, session = sessionInfo()), fs::path(out, "audit_faisabilite.rds"))
+stopifnot(identical(hash_before, tools::md5sum(input_files)))
+```
+
+Les contrôles portent sur la disponibilité des colonnes, les comptes de cellules
+et les empreintes des sources ; ils ne « testent » pas l'absence de confusion.
+Aucune donnée, graine de simulation, estimation antérieure ou dépendance n'est
+modifiée. Le schéma décrit des hypothèses et la conclusion reste méthodologique.
+
+```{r}
+sessionInfo()
+```

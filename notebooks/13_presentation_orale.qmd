@@ -1,0 +1,313 @@
+---
+title: "Présentation orale — conducteur et préparation du jury"
+subtitle: "Démonstrateur personnel indépendant de l’UPEC — données synthétiques non officielles"
+lang: fr
+format:
+  html:
+    toc: true
+    number-sections: true
+    embed-resources: true
+execute:
+  echo: false
+  message: false
+  warning: true
+  error: false
+  cache: false
+---
+
+```{r}
+#| include: false
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "pipeline", "pipeline.R"))
+source(here::here("R", "pipeline", "report.R"))
+evidence <- load_pipeline_report("outputs/pipeline_rapport")
+x <- evidence$resultats
+finding <- function(id) {
+  row <- x$constats[x$constats$id == id, , drop = FALSE]
+  stopifnot(nrow(row) == 1L)
+  paste0(row$millesime, " : ", row$resultat)
+}
+```
+
+Ce conducteur accompagne le diaporama `reports/presentation_orale.qmd`.
+Il prépare un exposé de 10 à 12 minutes, puis les échanges. Les chiffres sont
+lus dans les mêmes exports contrôlés que le rapport final ; aucune analyse
+n’est réestimée. Le discours condensé de 3 à 5 minutes est disponible dans
+`reports/discours_oral.qmd` et les 30 questions de jury dans
+`docs/simulation_jury.qmd`. Ces supports complètent le présent conducteur.
+
+## Contexte professionnel
+
+**À afficher**
+
+Un observatoire universitaire : inscriptions, réussite, parcours, enquêtes et
+devenir des diplômés. Mention permanente : « Données synthétiques, résultats non officiels ».
+
+**À dire**
+
+« J’ai simulé une commande d’observatoire universitaire pour montrer comment
+transformer des données de scolarité et d’enquête en outils de pilotage.
+Ce travail personnel est indépendant de l’UPEC et n’utilise aucune donnée réelle. »
+
+**Message clé**
+
+La valeur du projet réside dans la démarche de production et de restitution,
+pas dans un diagnostic de l’UPEC réelle.
+
+**Question du jury**
+
+Pourquoi avoir choisi des données synthétiques ?
+
+**Réponse**
+
+Elles permettent de démontrer et tester une chaîne complète sans utiliser
+de données personnelles. Leurs distributions restent celles d’un simulateur :
+elles ne permettent pas de conclure sur une population réelle.
+
+## Problématique et besoin métier
+
+**À afficher**
+
+Comment articuler scolarité et enquêtes pour comprendre les parcours et éclairer
+l’offre de formation ? Trois besoins : suivre, comprendre, restituer.
+
+**À dire**
+
+« Je pars des questions des responsables : combien d’étudiants accueillons-nous,
+quelles transitions observons-nous et que nous apprennent les enquêtes ?
+Je définis ensuite la population et le dénominateur avant de choisir un graphique. »
+
+**Message clé**
+
+Un indicateur répond à une question métier explicitement définie.
+
+**Question du jury**
+
+Comment éviter un tableau de bord rempli d’indicateurs inutiles ?
+
+**Réponse**
+
+En sélectionnant un petit nombre de questions prioritaires, en documentant
+chaque indicateur et en validant son utilité avec les utilisateurs.
+Cette validation métier réelle reste à conduire pour ce démonstrateur.
+
+## Données et unités statistiques
+
+**À afficher**
+
+15 000 personnes distinctes ; 31 816 inscriptions ; trois années ; onze tables.
+Un identifiant étudiant stable relie les observations annuelles.
+
+**À dire**
+
+« Je sépare les personnes, les inscriptions, les résultats et les réponses
+d’enquête. Une personne peut être présente plusieurs années : additionner les
+effectifs annuels donnerait un nombre d’inscriptions, pas un effectif distinct. »
+
+**Message clé**
+
+L’unité statistique détermine le sens du comptage et des jointures.
+
+**Question du jury**
+
+Comment éviter les doubles comptes lors des jointures ?
+
+**Réponse**
+
+Je vérifie les clés et les cardinalités avant les jointures. Les enquêtes restent
+séparées des tables de scolarité lorsqu’une jointure multiplierait les lignes.
+Les étudiants distincts sont comptés par identifiant dans la population retenue.
+
+## Qualité et traçabilité
+
+**À afficher**
+
+`r x$qualite$metadata$n_regles` règles ;
+`r x$qualite$metadata$n_alertes` alerte après nettoyage ;
+variante anomale, journal et données originales préservés.
+
+**À dire**
+
+« Je teste les clés, les domaines et la cohérence temporelle. J’ai injecté
+des anomalies connues pour vérifier leur détection. Les données manquantes
+prévues par le protocole ne sont pas corrigées comme des erreurs. »
+
+**Message clé**
+
+La qualité est un préalable et un ensemble de preuves, pas un nettoyage opaque.
+
+**Question du jury**
+
+Zéro alerte garantit-il une base parfaite ?
+
+**Réponse**
+
+Non. Cela signifie que les règles implémentées sont satisfaites. Le journal
+permet de retrouver la vérité simulée, ce qui ne serait pas possible tel quel
+sur une base réelle ; les contrôles devraient y être complétés par l’expertise métier.
+
+## Méthodes statistiques
+
+**À afficher**
+
+Descriptif → cohortes → enquêtes → GLM exploratoire.
+Validation annuelle parmi décisions connues, couverture présentée séparément.
+
+**À dire**
+
+« Je privilégie des méthodes interprétables adaptées aux unités observées.
+Les taux conservent leurs numérateurs et dénominateurs. Pour le modèle, je
+retiens la coupe initiale avec une ligne par personne et un test séparé. »
+
+**Message clé**
+
+La méthode suit la question, les données disponibles et les hypothèses défendables.
+
+**Question du jury**
+
+Pourquoi ne pas utiliser systématiquement un modèle mixte ?
+
+**Réponse**
+
+Le modèle choisi porte sur une coupe sans répétition par étudiant. Le petit
+nombre de formations et leur structure ne justifient pas de forcer un effet
+aléatoire. Une analyse répétée exigerait de réexaminer ces hypothèses.
+
+## Résultats, cohortes et enquêtes
+
+**À afficher**
+
+- `r finding("C02")`
+- `r finding("C04")`
+- `r finding("C05")`
+
+**À dire**
+
+« Je lis la réussite avec la couverture des décisions. Pour les cohortes,
+je compare les mêmes horizons. Pour les enquêtes, je sépare participation et
+satisfaction, car les répondants ne représentent pas nécessairement tous les invités. »
+
+**Message clé**
+
+Un résultat chiffré prend sens avec son champ, son horizon et ses exclusions.
+
+**Question du jury**
+
+Une satisfaction d’environ 60 % signifie-t-elle que 40 % des étudiants sont insatisfaits ?
+
+**Réponse**
+
+Non. Le taux favorable porte sur les réponses valides à l’item, avec des modalités
+qui peuvent inclure des réponses intermédiaires. Les absents et les non-concernés
+ne sont pas des réponses négatives. La non-réponse limite la généralisation.
+
+## Indicateurs décisionnels
+
+**À afficher**
+
+Dix indicateurs : inscriptions, validation, passage, réorientation, participation,
+satisfaction, diplomation, couverture du devenir, emploi hors études et études.
+Chaque valeur conserve N, D, millésime, couverture et statut.
+
+**À dire**
+
+« Le catalogue YAML formalise les règles. Je n’additionne pas des pourcentages
+et je ne transforme pas une transition non observable en zéro. Le devenir
+des diplômés utilise une population mature et des dénominateurs spécifiques. »
+
+**Message clé**
+
+Le dénominateur et le statut font partie de l’indicateur.
+
+**Question du jury**
+
+Comment calculer un taux global à partir de plusieurs sous-groupes ?
+
+**Réponse**
+
+En sommant les numérateurs et dénominateurs de populations compatibles et
+sans recouvrement, puis en divisant. Une moyenne simple des taux peut être
+erronée. Mélanger années ou indicateurs de sens différent n’est pas pertinent.
+
+## Tableaux de bord et automatisation
+
+**À afficher**
+
+Shiny et Power BI : inscriptions, réussite, parcours, enquêtes et insertion.
+Filtres d’année et de diplôme pour l’insertion ; mêmes résultats contrôlés.
+
+**À dire**
+
+« Les responsables disposent de graphiques et de tableaux lisibles, avec les
+effectifs utiles à l’interprétation. Le pipeline R produit les exports ; Power BI
+Desktop les actualise ensuite. Les deux interfaces ont été testées localement. »
+
+**Message clé**
+
+L’accessibilité repose sur des outils simples et des chiffres contrôlés en amont.
+
+**Question du jury**
+
+Le tableau de bord est-il publié et actualisé automatiquement chaque nuit ?
+
+**Réponse**
+
+Non. L’automatisation actuelle est locale et déclenchée. Aucun Service Power BI,
+passerelle, déploiement Shiny ou planificateur système n’est configuré. Les
+exports agrégés ne permettent pas encore un filtre par formation.
+
+## Recommandations et pilotage
+
+**À afficher**
+
+Contextualiser les volumes ; examiner les décisions inconnues ; comparer à
+horizon identique ; lire participation et satisfaction ensemble.
+
+**À dire**
+
+« Je distingue le résultat, son interprétation et la recommandation.
+Le rapport propose huit constats structurés. Sur des données réelles, je
+discuterais leurs implications avec les responsables avant de proposer une action. »
+
+**Message clé**
+
+L’outil éclaire la décision ; il ne la remplace pas.
+
+**Question du jury**
+
+Recommanderiez-vous de fermer une formation sur la base d’un taux faible ?
+
+**Réponse**
+
+Non. Il faudrait examiner les effectifs, les profils, la couverture, l’évolution,
+les objectifs pédagogiques et le contexte. Ici, aucun résultat synthétique ne
+justifie une action sur une formation réelle.
+
+## Limites et reproductibilité
+
+**À afficher**
+
+Simulation, fenêtre courte, non-réponse et sélection sur cas complets.
+`renv` pour les dépendances ; `targets` pour les calculs ; Quarto pour restituer.
+
+**À dire**
+
+« Les distributions reflètent le simulateur, pas une université réelle.
+Le modèle reste faiblement discriminant, sans interprétation causale.
+La reproductibilité permet de retrouver le calcul ; elle ne garantit pas à
+elle seule la validité d’une décision. »
+
+**Message clé**
+
+Une restitution professionnelle explicite autant ses limites que ses résultats.
+
+**Question du jury**
+
+Que faudrait-il pour utiliser ce dispositif sur des données réelles ?
+
+**Réponse**
+
+Un cadrage métier et juridique avec les acteurs compétents, notamment le DPO,
+des accès maîtrisés, la minimisation des données, des règles de conservation
+et de diffusion, puis une validation des sources, méthodes et indicateurs.
+Le caractère synthétique du démonstrateur ne vaut pas conformité d’un futur usage réel.

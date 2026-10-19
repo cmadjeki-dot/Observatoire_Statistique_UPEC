@@ -1,0 +1,192 @@
+---
+title: "05 — Analyse descriptive des étudiants et des inscriptions"
+subtitle: "Projet personnel indépendant de l'UPEC — résultats exclusivement synthétiques"
+lang: fr
+date: 2026-10-18
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+  error: false
+  cache: false
+---
+
+## Champ et méthode
+
+Cette analyse décrit les inscriptions principales actives du panel synthétique
+2023-2024 à 2025-2026. Les indicateurs suivent I01 à I05 du dictionnaire. Les
+étudiants distincts du panel ne s'obtiennent pas en additionnant les effectifs
+annuels. La réussite désigne la validation annuelle, distincte du diplôme.
+Les taux ont des dénominateurs explicites ; ils restent manquants sous dix
+observations. Les effectifs et la mention « effectif insuffisant » accompagnent
+les tableaux concernés. Ces sorties techniques ne constituent pas une diffusion
+institutionnelle ; les petits effectifs demanderaient aussi un examen du masquage
+complémentaire avant publication.
+
+Les décisions inconnues restent exclues du taux principal de validation et
+incluses dans sa couverture et sa borne basse. Les transitions portent sur
+les deux seuls départs observables ; les sorties restent au dénominateur.
+Le panel n'est pas une cohorte d'entrants homogène : ses évolutions combinent
+les entrées, les sorties et la progression des étudiants déjà présents.
+
+## Chargement contrôlé et traçabilité
+
+```{r}
+knitr::opts_knit$set(root.dir = here::here())
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "analysis", "descriptive.R"))
+stopifnot(isTRUE(renv::status()$synchronized))
+input_files <- c(fs::dir_ls(data_path("raw"), type = "file", all = TRUE),
+  fs::dir_ls(data_path("processed"), type = "file", all = TRUE))
+hash_before <- tools::md5sum(input_files)
+imported <- load_descriptive_source()
+x <- imported$data
+stopifnot(identical(x$transition_observable,
+  x$annee_universitaire != tail(imported$metadata$config$annees, 1L)))
+sources <- c(input_files, here::here("R", "analysis", "descriptive.R"),
+  here::here("docs", "dictionnaire_indicateurs.md"), here::here("renv.lock"))
+source_manifest <- data.frame(
+  fichier = as.character(fs::path_rel(sources, start = here::here())),
+  md5 = unname(tools::md5sum(sources)), stringsAsFactors = FALSE)
+cat("Gel d'observation :", as.character(imported$metadata$config$date_gel), "\n")
+```
+
+## Inscriptions et étudiants distincts — I01/I02
+
+```{r}
+enrolments <- describe_enrolments(x)
+knitr::kable(enrolments$annuel, digits = 2)
+knitr::kable(enrolments$panel)
+```
+
+Le panel rassemble `r format(enrolments$panel$n_etudiants, big.mark = " ")`
+étudiants distincts et `r format(enrolments$panel$n_inscriptions, big.mark = " ")`
+inscriptions cumulées. Les effectifs annuels étudiants et inscriptions coïncident
+car le modèle prévoit une seule inscription principale par personne et année.
+Entre les deux dernières années, la variation est de
+`r tail(enrolments$annuel$variation_effectif, 1)` inscriptions, soit
+`r round(tail(enrolments$annuel$evolution_pct, 1), 2)` % par rapport à l'année précédente.
+L'évolution mesure une variation d'effectif, pas une probabilité individuelle
+de réinscription ni l'attractivité d'une formation réelle.
+
+## Caractéristiques et formations
+
+```{r}
+characteristics <- describe_characteristics(x)
+knitr::kable(characteristics, digits = 2)
+```
+
+Les pourcentages sont calculés sur toutes les inscriptions de chaque année,
+valeurs manquantes incluses. La colonne `est_manquant` identifie les absences ;
+elles ne sont pas fusionnées avec une modalité substantielle. Le statut
+boursier est annuel et fictif. Les formations et les niveaux décrivent la
+composition du panel : une évolution de cette composition peut faire varier
+un taux global même sans évolution comparable dans chaque sous-groupe.
+
+## Réussite annuelle et couverture — I03/I04
+
+```{r}
+success_year <- describe_success(x)
+success_total <- describe_success(x, groups = character())
+success_level <- describe_success(x, c("annee_universitaire", "niveau"))
+success_formation <- describe_success(x, c("annee_universitaire", "libelle_formation"))
+success_bac <- describe_success(x, c("annee_universitaire", "type_bac"))
+success_grant <- describe_success(x, c("annee_universitaire", "boursier"))
+knitr::kable(success_year, digits = 2)
+knitr::kable(success_level, digits = 2)
+knitr::kable(success_formation, digits = 2)
+```
+
+Sur le cumul des inscriptions, le taux de validation parmi décisions connues
+est de `r round(success_total$taux_validation_connus_pct, 2)` %, avec une couverture
+de `r round(success_total$couverture_pct, 2)` %. Les
+`r success_total$n_inconnues` décisions inconnues restent distinctes des
+non-validations. La borne basse est de
+`r round(success_total$borne_basse_validation_pct, 2)` % : elle place au
+dénominateur toutes les inscriptions et ne constitue pas le taux principal.
+Ce cumul pondère davantage les personnes observées plusieurs années.
+
+```{r}
+#| code-fold: true
+knitr::kable(success_bac, digits = 2)
+knitr::kable(success_grant, digits = 2)
+```
+
+Les écarts par bac, bourse, niveau ou formation sont des associations brutes,
+avec les décisions connues comme dénominateur. Ils ne permettent pas d'attribuer
+un effet causal à une caractéristique. Le mécanisme de simulation introduit
+lui-même certaines relations ; ces résultats ne décrivent aucune population
+réelle. Aucune comparaison ajustée ou hiérarchie de formations n'est proposée.
+
+## Passage, redoublement et réorientation — I05
+
+```{r}
+transitions_year <- describe_transitions(x)
+transitions_level <- describe_transitions(x, c("annee_universitaire", "niveau"))
+knitr::kable(transitions_year, digits = 2)
+stopifnot(all(abs(tapply(transitions_year$taux_pct,
+  transitions_year$annee_universitaire, sum) - 100) < 1e-8))
+```
+
+Les six états sont exclusifs et leurs parts totalisent 100 % avant arrondi.
+Pour les départs 2024-2025, la part de passage est de
+`r round(transitions_year$taux_pct[transitions_year$annee_universitaire == "2024-2025" & transitions_year$etat_transition == "passage"], 2)` %,
+et celle de réorientation de
+`r round(transitions_year$taux_pct[transitions_year$annee_universitaire == "2024-2025" & transitions_year$etat_transition == "reorientation"], 2)` %.
+Ces parts portent sur toutes les inscriptions de départ de cette année,
+pas uniquement sur les personnes réinscrites.
+Le passage est distingué de la poursuite intercycle L3 vers M1. Une
+réorientation désigne le changement observé prévu au protocole ; une sortie
+du panel ne prouve pas un abandon des études. Aucun taux de transition n'est
+calculé pour les départs 2025-2026, faute d'observation de l'année suivante.
+Les états « autre » ne sont pas reclassés arbitrairement en redoublement.
+
+## Graphiques et lecture pour le pilotage
+
+```{r}
+#| fig-width: 9
+#| fig-height: 5
+plots <- plot_descriptive(enrolments, success_level, transitions_year)
+plots$inscriptions
+plots$reussite
+plots$parcours
+```
+
+Pour un suivi de pilotage, lire ensemble les volumes, la composition, la
+validation et sa couverture, puis les transitions observées. Les graphiques
+résument des statistiques déjà présentées avec leurs dénominateurs. Ils ne
+mesurent pas l'efficacité d'une formation. L'analyse longitudinale détaillée,
+les enquêtes, la diplomation et l'insertion feront l'objet de travaux dédiés.
+
+## Exports et conservation des sources
+
+```{r}
+tables <- list(inscriptions_annuelles = enrolments$annuel,
+  etudiants_distincts_panel = enrolments$panel, caracteristiques = characteristics,
+  reussite_annuelle = success_year, reussite_cumulee = success_total,
+  reussite_niveau = success_level, reussite_formation = success_formation,
+  reussite_bac = success_bac, reussite_bourse = success_grant,
+  transitions_annuelles = transitions_year, transitions_niveau = transitions_level)
+out <- output_path("descriptive")
+fs::dir_create(out)
+for (name in names(tables)) utils::write.csv(tables[[name]],
+  fs::path(out, paste0(name, ".csv")), row.names = FALSE, na = "", fileEncoding = "UTF-8")
+for (name in names(plots)) ggplot2::ggsave(fs::path(out, paste0(name, ".png")),
+  plots[[name]], width = 9, height = 5, dpi = 160)
+utils::write.csv(source_manifest, fs::path(out, "manifeste_sources.csv"), row.names = FALSE)
+saveRDS(list(tables = tables, sources = source_manifest,
+  metadata = imported$metadata, session = sessionInfo()), fs::path(out, "analyse_descriptive.rds"))
+stopifnot(identical(hash_before, tools::md5sum(input_files)))
+```
+
+Les CSV sont des sorties descriptives techniques ; le contrat d'export et le
+modèle Power BI restent à construire. Aucun fichier brut ou préparé n'a été
+modifié. Les analyses peuvent être reproduites depuis les sources contrôlées.
+
+```{r}
+sessionInfo()
+```

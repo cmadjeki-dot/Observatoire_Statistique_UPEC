@@ -1,0 +1,62 @@
+---
+title: "Cadrage de l'Observatoire_Statistique_UPEC"
+subtitle: "Démonstrateur personnel indépendant de l'UPEC — version 0.1 à valider"
+lang: fr
+date: 2026-10-18
+format:
+  html:
+    toc: true
+    embed-resources: true
+execute:
+  enabled: false
+---
+
+## Objet de ce notebook
+
+Ce document présente le cadrage avant simulation. Il ne charge aucune donnée,
+n'exécute aucun calcul et ne contient aucun résultat statistique. Les données
+seront entièrement synthétiques ; aucune restitution ne sera officielle.
+
+La question centrale est de comprendre comment les données de scolarité et les
+enquêtes peuvent éclairer les parcours et l'évaluation des formations. La cible
+est d'environ 15 000 personnes distinctes suivies sur trois années, de 2023-2024
+à 2025-2026, avec des populations annuelles et des cohortes distinctes.
+
+## Documents de référence
+
+Les fichiers de `docs/` constituent les références. Ce notebook inclut le
+protocole et les indicateurs pour éviter la duplication des définitions.
+
+| Document | Fichier source |
+|---|---|
+| Commande, questions métier et recette | `docs/cahier_des_charges.md` |
+| Populations, réussite, parcours, enquêtes et limites | `docs/protocole_statistique.md` |
+| Définitions des indicateurs | `docs/dictionnaire_indicateurs.md` |
+| Tables, clés, types et modalités | `docs/dictionnaire_donnees.md` |
+| Volumes, graines et mécanismes proposés | `docs/plan_simulation.md`, `config/simulation.R` |
+| Questions, filtres et modalités | `docs/questionnaires.md` |
+
+## Protocole proposé
+
+{{< include ../docs/protocole_statistique.md >}}
+
+## Indicateurs proposés
+
+{{< include ../docs/dictionnaire_indicateurs.md >}}
+
+## Validation attendue
+
+Le périmètre des restitutions comprend également **Power BI et automatisation**,
+pour fournir aux responsables des outils accessibles sans compétence statistique :
+exports d'indicateurs depuis R, modèle de données, pages inscriptions, réussite,
+parcours, enquêtes et insertion, puis tests des filtres, mesures et actualisations.
+Le cahier des charges précise les livrables et les critères C13 à C16. Cette
+extension est cadrée uniquement ; aucun rapport Power BI n'est encore créé.
+
+Les décisions D01 à D07 ont été validées au passage à la préparation de la
+simulation le 18 octobre 2026. Les formations fictives, paramètres, graines et
+questionnaires ont été acceptés au démarrage de la phase B. Le générateur de
+l'étape 12 est disponible ; les tests unitaires des données et le contrôle qualité
+seront développés dans les étapes suivantes.
+Aucun taux, graphique, modèle ou conclusion sur l'UPEC ne peut être déduit
+de ce document de cadrage.
