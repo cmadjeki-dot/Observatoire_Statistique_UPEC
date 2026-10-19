@@ -3,6 +3,13 @@
 Audit local du 19 octobre 2026. Démonstrateur personnel indépendant de l’UPEC,
 données synthétiques et résultats non officiels.
 
+**Mise à jour : publication autorisée par l’utilisateur et réalisée.** Le premier
+push sur `main` a abouti au commit de fusion `5c8db31`, qui conserve le commit
+distant `1b9f0b7` et les commits locaux. Les sections d’audit et d’attente ci-dessous
+décrivent les étapes préparatoires historiques, désormais terminées. Le dépôt
+est public : `https://github.com/cmadjeki-dot/Observatoire_Statistique_UPEC`.
+Les données, résultats, caches et paramètres locaux n’ont pas été publiés.
+
 ## État constaté
 
 - Branche : `main`.

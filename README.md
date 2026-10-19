@@ -49,7 +49,7 @@ analyses descriptives ou exploratoires.
 | Rapports et note de pilotage | Deux sources dans `reports/`, HTML et manifestes produits par le pipeline |
 | Rapport final | [Source Quarto](docs/rapport_final.qmd), HTML rendu et vérifié ; PDF non produit faute de LaTeX |
 | Présentation orale | [Diaporama Quarto](reports/presentation_orale.qmd), notes orateur et rendu HTML Reveal.js |
-| Git/GitHub | Premier commit local existant ; aucun dépôt distant configuré ni publication effectuée |
+| Git/GitHub | Sources publiées sur [GitHub](https://github.com/cmadjeki-dot/Observatoire_Statistique_UPEC), branche `main`, historiques local et distant conservés |
 
 ## Installation dans VS Code sous Windows
 
@@ -327,9 +327,11 @@ Power BI et secrets sont exclus par `.gitignore`. Les CSV synthétiques destiné
 `data/public/synthetic/` ; ce dossier ne contient actuellement aucun CSV.
 Le dépôt doit suivre le code, les documents, `.Rprofile`, `DESCRIPTION`,
 `renv.lock`, `renv/activate.R` et `renv/settings.json`, pas les bibliothèques locales.
-Les `.pbix` et caches `.pbi` restent locaux. Les sources sont présentes dans
-l’espace de travail ; les développements récents ne sont pas encore tous commités.
-Aucun dépôt GitHub distant n’est configuré.
+Les `.pbix` et caches `.pbi` restent locaux. Les sources sont versionnées et
+publiées dans le dépôt GitHub public `cmadjeki-dot/Observatoire_Statistique_UPEC`.
+Le remote `origin` désigne ce dépôt ; la branche locale `main` suit `origin/main`.
+L’intégration a conservé les deux historiques sans push forcé. Les résultats
+ignorés restent à reconstruire localement.
 
 ## Limites statistiques et fonctionnelles
 
@@ -350,5 +352,5 @@ interne, sans usage individuel réel. Aucun effet causal n’est identifié.
 Le questionnaire est un prototype documenté pour LimeSurvey ; aucune instance,
 import `.lss`, collecte ou invitation réelle n’a été exécuté. Les interfaces sont
 testées techniquement ; leur validation métier avec des responsables réels reste
-à conduire. Le PDF, la publication GitHub et les
+à conduire. Le PDF et les
 services de déploiement restent des livrables ou opérations non réalisés.

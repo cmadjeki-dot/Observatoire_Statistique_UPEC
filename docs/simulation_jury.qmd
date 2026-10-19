@@ -342,11 +342,12 @@ avec les responsables reste nécessaire pour les usages et la lisibilité métie
 
 **Réponse courte :** vérifier destination, fichiers, secrets et exclusions avant commit et push.
 
-**Réponse détaillée :** les sources et le lockfile sont proposés au versionnement,
+**Réponse détaillée :** les sources et le lockfile sont versionnés,
 les données de travail, caches et paramètres locaux sont exclus. Une recherche
 de signatures sensibles complète l’examen du diff sans garantir l’absence de
-tout secret. À cette étape, aucun remote n’est configuré : la publication attend
-la confirmation de destination et des fichiers.
+tout secret. Après confirmation de la destination et des fichiers, le dépôt
+public a été publié sur `cmadjeki-dot/Observatoire_Statistique_UPEC`, en conservant
+l’historique existant sans push forcé.
 
 **Piège à éviter :** croire que `.gitignore` efface un secret déjà présent dans l’historique.
 

@@ -3,6 +3,12 @@
 Date : 19 octobre 2026. Démonstrateur personnel indépendant de l’UPEC.
 Données entièrement synthétiques, résultats non officiels.
 
+**Mise à jour après la recette :** la publication GitHub a été confirmée par
+l’utilisateur puis réalisée sur `cmadjeki-dot/Observatoire_Statistique_UPEC`.
+Les mentions de publication suspendue ci-dessous décrivent la situation au
+moment de la validation technique, avant cette confirmation. L’historique distant
+a été conservé sans push forcé ; voir `docs/preparation_publication.md`.
+
 ## Décision : validation technique locale favorable
 
 Les contrôles ci-dessous ont été exécutés sur le poste Windows du projet.
