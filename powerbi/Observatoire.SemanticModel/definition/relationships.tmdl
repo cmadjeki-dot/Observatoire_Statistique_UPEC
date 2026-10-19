@@ -1,0 +1,14 @@
+relationship rel_DimIndicateur
+	fromColumn: FactIndicateur.id
+	toColumn: DimIndicateur.id
+	crossFilteringBehavior: oneDirection
+
+relationship rel_DimAnnee
+	fromColumn: FactIndicateur.annee_universitaire
+	toColumn: DimAnnee.annee_universitaire
+	crossFilteringBehavior: oneDirection
+
+relationship rel_DimDiplome
+	fromColumn: FactIndicateur.type_diplome
+	toColumn: DimDiplome.type_diplome
+	crossFilteringBehavior: oneDirection

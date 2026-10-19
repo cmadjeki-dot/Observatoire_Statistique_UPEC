@@ -1,0 +1,18 @@
+table DimDiplome
+
+	column type_diplome
+		dataType: string
+		summarizeBy: none
+		sourceColumn: type_diplome
+
+	partition DimDiplome = m
+		mode: import
+		source =
+			let
+			  Check = Table.PromoteHeaders(Csv.Document(File.Contents(DataFolder & "/statut.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv])),
+			  SourceCheck = Table.PromoteHeaders(Csv.Document(File.Contents(DataFolder & "/../pipeline_rapport/statut.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv])),
+			  Raw = if Check{0}[statut] = "succes" and SourceCheck{0}[statut] = "succes" then Csv.Document(File.Contents(DataFolder & "/DimDiplome.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]) else error "Actualisation R requise : exports non courants",
+			  Header = Table.PromoteHeaders(Raw, [PromoteAllScalars=true]),
+			  Missing = Table.ReplaceValue(Header, "", null, Replacer.ReplaceValue, Table.ColumnNames(Header)),
+			  Typed = Table.TransformColumnTypes(Missing, {{"type_diplome", type text}}, "en-US")
+			in Typed

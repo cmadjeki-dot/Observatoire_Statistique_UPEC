@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "Observatoire synthetique UPEC",
+    "description": "Demonstrateur personnel independant, donnees fictives."
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "fe924df8-7f05-4620-9e86-948a4736dbb2"
+  }
+}

@@ -1,0 +1,10 @@
+model Model
+	culture: fr-FR
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-US
+
+ref table FactIndicateur
+ref table DimIndicateur
+ref table DimAnnee
+ref table DimDiplome
+ref expression DataFolder

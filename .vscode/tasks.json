@@ -9,6 +9,55 @@
   },
   "tasks": [
     {
+      "label": "Shiny : arreter l'apercu de recette",
+      "type": "process",
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/scripts/stop_shiny_preview.ps1"],
+      "problemMatcher": []
+    },
+    {
+      "label": "R : actualiser les tableaux de bord",
+      "type": "process",
+      "command": "${config:r.rpath.windows}",
+      "args": ["--no-save", "--no-restore", "--slave", "--file=${workspaceFolder}/scripts/refresh_dashboards.R"],
+      "problemMatcher": []
+    },
+    {
+      "label": "R : tableau de bord Shiny local",
+      "type": "process",
+      "command": "${config:r.rpath.windows}",
+      "args": ["--no-save", "--no-restore", "--slave", "--file=${workspaceFolder}/scripts/run_shiny.R"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Power BI : ouvrir le projet",
+      "type": "process",
+      "command": "${env:ProgramFiles}/Microsoft Power BI Desktop/bin/PBIDesktop.exe",
+      "args": ["${workspaceFolder}/powerbi/Observatoire.pbip"],
+      "problemMatcher": []
+    },
+    {
+      "label": "R : rapports Quarto du pipeline",
+      "type": "process",
+      "command": "${config:r.rpath.windows}",
+      "args": ["--no-save", "--no-restore", "--slave", "--file=${workspaceFolder}/scripts/run_reports.R"],
+      "problemMatcher": []
+    },
+    {
+      "label": "R : reconstruction depuis les graines",
+      "type": "process",
+      "command": "${config:r.rpath.windows}",
+      "args": ["--no-save", "--no-restore", "--slave", "--file=${workspaceFolder}/scripts/run_reconstruction.R"],
+      "problemMatcher": []
+    },
+    {
+      "label": "R : pipeline targets",
+      "type": "process",
+      "command": "${config:r.rpath.windows}",
+      "args": ["--no-save", "--no-restore", "--slave", "--file=${workspaceFolder}/scripts/run_pipeline.R"],
+      "problemMatcher": []
+    },
+    {
       "label": "R : diagnostic sans activation renv",
       "type": "process",
       "command": "${config:r.rpath.windows}",

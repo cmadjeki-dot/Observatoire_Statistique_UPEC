@@ -1,0 +1,32 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "mention",
+  "position": {
+    "x": 20,
+    "y": 10,
+    "z": 10,
+    "width": 1390,
+    "height": 80,
+    "tabOrder": 10
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Inscriptions — Donnees synthetiques, independant de l'UPEC. Gel 30/09/2026. Taux en %, sauf inscriptions en effectifs. Populations distinctes ; aucune causalite."
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

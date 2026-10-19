@@ -1,0 +1,2 @@
+# Validateur facultatif, isole sous outputs/powerbi_validation/python.
+jsonschema==4.26.0

@@ -1,0 +1,102 @@
+table FactIndicateur
+
+	column id
+		dataType: string
+		summarizeBy: none
+		sourceColumn: id
+
+	column annee_universitaire
+		dataType: string
+		summarizeBy: none
+		sourceColumn: annee_universitaire
+
+	column type_diplome
+		dataType: string
+		summarizeBy: none
+		sourceColumn: type_diplome
+
+	column population_reference
+		dataType: double
+		summarizeBy: none
+		sourceColumn: population_reference
+
+	column numerateur
+		dataType: double
+		summarizeBy: none
+		sourceColumn: numerateur
+
+	column denominateur
+		dataType: double
+		summarizeBy: none
+		sourceColumn: denominateur
+
+	column n_exclus
+		dataType: double
+		summarizeBy: none
+		sourceColumn: n_exclus
+
+	column n_manquants
+		dataType: double
+		summarizeBy: none
+		sourceColumn: n_manquants
+
+	column couverture_numerateur
+		dataType: double
+		summarizeBy: none
+		sourceColumn: couverture_numerateur
+
+	column couverture_denominateur
+		dataType: double
+		summarizeBy: none
+		sourceColumn: couverture_denominateur
+
+	column couverture_pct
+		dataType: double
+		summarizeBy: none
+		sourceColumn: couverture_pct
+
+	column valeur
+		dataType: double
+		summarizeBy: none
+		sourceColumn: valeur
+
+	column statut
+		dataType: string
+		summarizeBy: none
+		sourceColumn: statut
+
+	column date_reference
+		dataType: string
+		summarizeBy: none
+		sourceColumn: date_reference
+
+	column date_gel
+		dataType: string
+		summarizeBy: none
+		sourceColumn: date_gel
+
+	measure 'Valeur controlee' =
+			VAR UniqueGrain = HASONEVALUE(DimAnnee[annee_universitaire]) && HASONEVALUE(DimIndicateur[id])
+			VAR Refus = COUNTROWS(FILTER(FactIndicateur, FactIndicateur[statut] <> "diffusable")) > 0
+			VAR N = SUM(FactIndicateur[numerateur])
+			VAR D = SUM(FactIndicateur[denominateur])
+			RETURN IF(NOT UniqueGrain || Refus, BLANK(), IF(SELECTEDVALUE(DimIndicateur[id]) = "I02", N, 100 * DIVIDE(N,D)))
+		formatString: 0.00
+	measure 'Lecture du statut' = SWITCH(SELECTEDVALUE(FactIndicateur[statut]), "non_observable", "Non observable (fin de periode)", "effectif_insuffisant", "Effectif insuffisant", "denominateur_nul", "Denominateur nul", "diffusable", "Diffusable", BLANK())
+
+	measure 'Numerateur affiche' = IF(HASONEVALUE(DimAnnee[annee_universitaire]) && HASONEVALUE(DimIndicateur[id]), SUM(FactIndicateur[numerateur]))
+	measure 'Denominateur affiche' = IF(HASONEVALUE(DimAnnee[annee_universitaire]) && HASONEVALUE(DimIndicateur[id]), SUM(FactIndicateur[denominateur]))
+	measure 'Couverture pct' = IF(HASONEVALUE(DimAnnee[annee_universitaire]) && HASONEVALUE(DimIndicateur[id]), 100 * DIVIDE(SUM(FactIndicateur[couverture_numerateur]),SUM(FactIndicateur[couverture_denominateur])))
+		formatString: 0.00
+
+	partition FactIndicateur = m
+		mode: import
+		source =
+			let
+			  Check = Table.PromoteHeaders(Csv.Document(File.Contents(DataFolder & "/statut.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv])),
+			  SourceCheck = Table.PromoteHeaders(Csv.Document(File.Contents(DataFolder & "/../pipeline_rapport/statut.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv])),
+			  Raw = if Check{0}[statut] = "succes" and SourceCheck{0}[statut] = "succes" then Csv.Document(File.Contents(DataFolder & "/FactIndicateur.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]) else error "Actualisation R requise : exports non courants",
+			  Header = Table.PromoteHeaders(Raw, [PromoteAllScalars=true]),
+			  Missing = Table.ReplaceValue(Header, "", null, Replacer.ReplaceValue, Table.ColumnNames(Header)),
+			  Typed = Table.TransformColumnTypes(Missing, {{"id", type text}, {"annee_universitaire", type text}, {"type_diplome", type text}, {"population_reference", type number}, {"numerateur", type number}, {"denominateur", type number}, {"n_exclus", type number}, {"n_manquants", type number}, {"couverture_numerateur", type number}, {"couverture_denominateur", type number}, {"couverture_pct", type number}, {"valeur", type number}, {"statut", type text}, {"date_reference", type text}, {"date_gel", type text}}, "en-US")
+			in Typed

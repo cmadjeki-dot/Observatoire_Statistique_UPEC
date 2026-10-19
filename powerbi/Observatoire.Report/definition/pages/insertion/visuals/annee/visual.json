@@ -1,0 +1,36 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "annee",
+  "position": {
+    "x": 20,
+    "y": 100,
+    "z": 100,
+    "width": 650,
+    "height": 100,
+    "tabOrder": 100
+  },
+  "visual": {
+    "visualType": "slicer",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimAnnee"
+                    }
+                  },
+                  "Property": "annee_universitaire"
+                }
+              },
+              "queryRef": "DimAnnee.annee_universitaire"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

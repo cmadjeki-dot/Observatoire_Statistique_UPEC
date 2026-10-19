@@ -1,0 +1,38 @@
+table DimIndicateur
+
+	column id
+		dataType: string
+		summarizeBy: none
+		sourceColumn: id
+
+	column libelle
+		dataType: string
+		summarizeBy: none
+		sourceColumn: libelle
+
+	column famille
+		dataType: string
+		summarizeBy: none
+		sourceColumn: famille
+
+	column unite
+		dataType: string
+		summarizeBy: none
+		sourceColumn: unite
+
+	column page
+		dataType: string
+		summarizeBy: none
+		sourceColumn: page
+
+	partition DimIndicateur = m
+		mode: import
+		source =
+			let
+			  Check = Table.PromoteHeaders(Csv.Document(File.Contents(DataFolder & "/statut.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv])),
+			  SourceCheck = Table.PromoteHeaders(Csv.Document(File.Contents(DataFolder & "/../pipeline_rapport/statut.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv])),
+			  Raw = if Check{0}[statut] = "succes" and SourceCheck{0}[statut] = "succes" then Csv.Document(File.Contents(DataFolder & "/DimIndicateur.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]) else error "Actualisation R requise : exports non courants",
+			  Header = Table.PromoteHeaders(Raw, [PromoteAllScalars=true]),
+			  Missing = Table.ReplaceValue(Header, "", null, Replacer.ReplaceValue, Table.ColumnNames(Header)),
+			  Typed = Table.TransformColumnTypes(Missing, {{"id", type text}, {"libelle", type text}, {"famille", type text}, {"unite", type text}, {"page", type text}}, "en-US")
+			in Typed

@@ -1,0 +1,6 @@
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "pipeline", "pipeline.R"))
+source(here::here("R", "pipeline", "report.R"))
+source(here::here("R", "dashboard", "dashboard.R"))
+evidence <- load_pipeline_report("outputs/pipeline_rapport")
+export_dashboard_tables(evidence)

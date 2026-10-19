@@ -1,0 +1,70 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "evolution",
+  "position": {
+    "x": 20,
+    "y": 220,
+    "z": 220,
+    "width": 1390,
+    "height": 300,
+    "tabOrder": 220
+  },
+  "visual": {
+    "visualType": "lineChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimAnnee"
+                    }
+                  },
+                  "Property": "annee_universitaire"
+                }
+              },
+              "queryRef": "DimAnnee.annee_universitaire"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "FactIndicateur"
+                    }
+                  },
+                  "Property": "Valeur controlee"
+                }
+              },
+              "queryRef": "FactIndicateur.Valeur controlee"
+            }
+          ]
+        },
+        "Series": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimIndicateur"
+                    }
+                  },
+                  "Property": "libelle"
+                }
+              },
+              "queryRef": "DimIndicateur.libelle"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "detail",
+  "position": {
+    "x": 20,
+    "y": 540,
+    "z": 540,
+    "width": 1390,
+    "height": 340,
+    "tabOrder": 540
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimAnnee"
+                    }
+                  },
+                  "Property": "annee_universitaire"
+                }
+              },
+              "queryRef": "DimAnnee.annee_universitaire"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimIndicateur"
+                    }
+                  },
+                  "Property": "libelle"
+                }
+              },
+              "queryRef": "DimIndicateur.libelle"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimIndicateur"
+                    }
+                  },
+                  "Property": "unite"
+                }
+              },
+              "queryRef": "DimIndicateur.unite"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "DimDiplome"
+                    }
+                  },
+                  "Property": "type_diplome"
+                }
+              },
+              "queryRef": "DimDiplome.type_diplome"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "FactIndicateur"
+                    }
+                  },
+                  "Property": "Valeur controlee"
+                }
+              },
+              "queryRef": "FactIndicateur.Valeur controlee"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "FactIndicateur"
+                    }
+                  },
+                  "Property": "Numerateur affiche"
+                }
+              },
+              "queryRef": "FactIndicateur.Numerateur affiche"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "FactIndicateur"
+                    }
+                  },
+                  "Property": "Denominateur affiche"
+                }
+              },
+              "queryRef": "FactIndicateur.Denominateur affiche"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "FactIndicateur"
+                    }
+                  },
+                  "Property": "Couverture pct"
+                }
+              },
+              "queryRef": "FactIndicateur.Couverture pct"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "FactIndicateur"
+                    }
+                  },
+                  "Property": "Lecture du statut"
+                }
+              },
+              "queryRef": "FactIndicateur.Lecture du statut"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
