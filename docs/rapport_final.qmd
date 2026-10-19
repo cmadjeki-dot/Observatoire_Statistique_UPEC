@@ -1,0 +1,365 @@
+---
+title: "Observatoire statistique — rapport final"
+subtitle: "Démonstrateur personnel indépendant de l’UPEC — données entièrement synthétiques"
+lang: fr
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    embed-resources: true
+    theme: cosmo
+    format-links: false
+  pdf:
+    toc: true
+    number-sections: true
+    pdf-engine: lualatex
+    fontsize: 10pt
+    geometry: margin=20mm
+params:
+  pipeline_directory: "outputs/pipeline_rapport"
+execute:
+  echo: false
+  message: false
+  warning: true
+  error: false
+  cache: false
+---
+
+```{r}
+#| include: false
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "pipeline", "pipeline.R"))
+source(here::here("R", "pipeline", "report.R"))
+evidence <- load_pipeline_report(params$pipeline_directory)
+x <- evidence$resultats
+audit_file <- fs::path(params$pipeline_directory, "reconstruction", "audit_nettoyage.rds")
+stopifnot(as.character(audit_file) %in% evidence$sources$fichier)
+audit <- readRDS(project_path(as.character(audit_file)))
+stopifnot(identical(audit$after$metadata$verdict, "conforme"))
+ind <- x$indicateurs$indicateurs
+perf <- x$evaluation$performances
+panel <- x$description$inscriptions$panel
+fmt <- function(value, digits = 0) formatC(value, format = "f", digits = digits,
+  big.mark = " ", decimal.mark = ",")
+options(knitr.kable.NA = "Non disponible")
+```
+
+## Résumé exécutif
+
+**Ce rapport ne décrit pas l’UPEC réelle.** Il présente un démonstrateur
+personnel utilisant exclusivement des données fictives, gelées au
+`r x$qualite$metadata$date_gel`. Sa finalité est d’illustrer une chaîne de
+production d’indicateurs universitaires contrôlés, reproductibles et accessibles
+aux responsables de formation.
+
+La base couvre **`r fmt(panel$n_etudiants)` étudiants distincts** et
+**`r fmt(panel$n_inscriptions)` inscriptions** sur trois années universitaires.
+Après traitement des anomalies contrôlées, les
+`r x$qualite$metadata$n_regles` règles de qualité ne relèvent plus d’alerte.
+Les `r length(unique(ind$id))` indicateurs prioritaires sont déclinés en
+`r nrow(ind)` lignes conservant leurs populations et leurs millésimes.
+
+Les enquêtes nécessitent une lecture conjointe de la participation et de la
+satisfaction. Les parcours nécessitent des horizons comparables. Le modèle
+exploratoire discrimine faiblement les réussites sur le jeu de test
+(AUC : `r fmt(perf$auc[perf$modele == "GLM_test"], 3)`). Ces résultats
+synthétiques servent à tester les outils ; ils ne fondent aucune décision
+concernant des étudiants ou des formations réels.
+
+## Contexte et objectifs
+
+Le projet s’inspire des missions d’un observatoire universitaire : caractériser
+les inscriptions, suivre la réussite et les parcours, exploiter les enquêtes,
+étudier le devenir des diplômés et préparer des restitutions de pilotage.
+La question directrice est : comment articuler données de scolarité et enquêtes
+pour éclairer l’offre de formation avec des indicateurs définis et traçables ?
+
+Les livrables comprennent les scripts R, les notebooks pédagogiques, les
+dictionnaires, les contrôles qualité, un pipeline `targets`, les exports
+contrôlés, un tableau de bord Shiny et un projet Power BI. Les cinq pages
+des tableaux de bord couvrent inscriptions, réussite, parcours, enquêtes et
+insertion. Les interfaces exposent les résultats et les filtres accessibles
+sans demander à l’utilisateur de maîtriser les méthodes statistiques.
+
+## Données et périmètre
+
+Les années couvertes sont 2023-2024, 2024-2025 et 2025-2026. Les tables relient
+étudiants, formations, inscriptions, résultats, parcours, invitations et réponses
+aux évaluations, décisions de diplôme, diplômes et devenir des diplômés.
+L’identifiant étudiant reste stable ; les inscriptions annuelles constituent une
+unité distincte des personnes suivies sur toute la période.
+
+Le générateur et ses graines sont documentés dans `config/simulation.R` et
+`R/data/simulate_data.R`. Les relations statistiques sont choisies pour leur
+plausibilité pédagogique. Elles ne reproduisent pas les distributions d’un
+établissement réel. Une variante contenant des anomalies est conservée séparément.
+
+```{r}
+#| tbl-cap: "Population annuelle et inscriptions synthétiques"
+knitr::kable(x$description$inscriptions$annuel[c("annee_universitaire",
+  "n_inscriptions", "n_etudiants", "evolution_pct")], digits = 2,
+  col.names = c("Année", "Inscriptions", "Étudiants", "Évolution (%)"))
+```
+
+Les données originales restent dans `data/raw/`, les tables analytiques dans
+`data/processed/`. Le calcul consommé ici provient de la reconstruction isolée
+dans `outputs/pipeline_rapport/`, sans écraser ces données originales.
+
+## Qualité et traçabilité
+
+Les contrôles portent sur les dimensions, les clés, les types, les domaines,
+l’intégrité référentielle, les ECTS, les dates et la cohérence longitudinale.
+Le nettoyage s’appuie sur le journal des anomalies injectées ; cette possibilité
+de retrouver la vérité simulée ne serait pas disponible sur une base réelle.
+
+```{r}
+#| tbl-cap: "Contrôles avant et après traitement des anomalies"
+knitr::kable(data.frame(
+  Etape = c("Avant nettoyage", "Après nettoyage"),
+  Regles = c(audit$before$metadata$n_regles, audit$after$metadata$n_regles),
+  Alertes = c(audit$before$metadata$n_alertes, audit$after$metadata$n_alertes),
+  Verdict = c(audit$before$metadata$verdict, audit$after$metadata$verdict)))
+```
+
+Un événement peut déclencher plusieurs alertes : le nombre d’alertes ne correspond
+pas au nombre d’anomalies injectées. Les valeurs manquantes légitimes ne sont pas
+automatiquement imputées. La non-réponse et les observations hors fenêtre restent
+identifiables.
+
+Avant le rendu, le lecteur vérifie le dernier statut de calcul, les empreintes MD5
+des six produits exportés et celles des sources, ainsi que le verdict qualité.
+Un échec ou une modification de source provoque l’arrêt du rapport. Les empreintes
+servent à détecter les changements de fichiers ; elles ne constituent pas une
+signature d’authenticité.
+
+## Méthodes et définitions
+
+La réussite annuelle correspond à une validation parmi les décisions connues.
+Les décisions inconnues sont exclues du dénominateur et leur couverture doit être
+présentée. Cette réussite ne se confond pas avec l’obtention d’un diplôme.
+Le taux de diplomation utilise la population terminale éligible définie au protocole.
+
+Les transitions distinguent passage, redoublement, réorientation, sortie observée,
+poursuite intercycle et autre situation. La dernière année ne permet pas d’observer
+la transition suivante. Une absence dans le champ ne prouve ni abandon ni absence
+d’inscription dans un autre établissement.
+
+Les taux utilisent les numérateurs et dénominateurs éligibles. Un dénominateur nul
+produit une valeur manquante ; le seuil de diffusion des taux est fixé à 10.
+Les taux de sous-groupes ne sont pas moyennés pour produire un taux global.
+Les définitions complètes, exclusions et limites figurent dans
+`docs/protocole_statistique.md`, `docs/dictionnaire_donnees.md`,
+`docs/dictionnaire_indicateurs.md` et `config/indicators.yml`.
+
+## Enquêtes et devenir des diplômés
+
+Le questionnaire type LimeSurvey est décrit dans `docs/protocole_enquete.md`
+et `docs/questionnaires.md`. Il distingue invitation, participation, réponse
+à chaque item et modalité « non concerné ». Les trois items de satisfaction
+sont simulés indépendamment : aucun score composite ni coefficient alpha ne
+doit leur être imposé.
+
+```{r}
+#| tbl-cap: "Participation et satisfaction par année (en %)"
+knitr::kable(x$enquetes$evaluation_annuelle[c("annee_universitaire",
+  "n_invites", "n_repondants", "taux_reponse_pct", "satisfaction_favorable_pct")],
+  digits = 2, col.names = c("Année", "Invités", "Répondants", "Participation", "Satisfaction"))
+```
+
+La satisfaction favorable porte sur les réponses valides à l’item global,
+et non sur tous les invités. Une absence de réponse n’équivaut pas à une
+insatisfaction. Les comparaisons répondants/non-répondants décrivent un risque
+de sélection ; elles ne démontrent pas que le biais est éliminé.
+
+Le devenir est observé à six mois, avec une collecte considérée close à sept
+mois et une éligibilité évaluée à la date de gel. Le diplôme de référence est
+le dernier diplôme mature par personne. Une poursuite d’études est prioritaire
+dans la classification. Le taux d’emploi concerne les répondants hors études,
+et ne doit pas être extrapolé à tous les diplômés. Les trois indicateurs de
+devenir sont détaillés dans le tableau des indicateurs ci-dessous.
+
+## Parcours et suivi longitudinal
+
+```{r}
+#| tbl-cap: "Suivi des cohortes L1 : dénominateur initial conservé"
+knitr::kable(x$suivi[c("cohorte_l1", "horizon", "n_cohorte_initiale",
+  "n_presents", "presence_pct")], digits = 2,
+  col.names = c("Cohorte L1", "Horizon (ans)", "Cohorte initiale", "Présents", "Présence (%)"))
+```
+
+Les lignes correspondent aux horizons effectivement observables. Il serait
+incorrect de comparer une présence à deux ans pour une cohorte ancienne à une
+présence à un an pour une cohorte récente. La dernière cohorte n’a pas encore
+de suivi à un an. Une absence peut précéder un retour ; elle n’est pas assimilée
+à un abandon définitif.
+
+## Modélisation exploratoire
+
+Le choix est documenté dans `docs/choix_modele_statistique.md`. Une régression
+logistique décrit la validation de la première année observée, avec une seule
+observation par étudiant. Le niveau, les contrastes de formation au sein du cycle,
+le type de baccalauréat, le parcours antérieur et le statut boursier fictif sont
+inclus. Cette coupe évite de traiter les répétitions d’un même étudiant comme
+indépendantes. Le faible nombre de formations et la structure simulée ne justifient
+pas de forcer un modèle mixte.
+
+La sélection des cas complets peut induire un biais. Le partage stratifié
+apprentissage/test est figé et le jeu de test ne sert pas à ajuster le modèle.
+Les références et la sélection sont conservées dans l’objet de résultats et
+expliquées dans `notebooks/06_modelisation.qmd`.
+
+```{r}
+#| tbl-cap: "Performances sur le jeu de test : modèle et référence constante"
+knitr::kable(perf[c("modele", "n", "auc", "brier", "log_loss")], digits = 4,
+  col.names = c("Modèle", "Effectif", "AUC", "Brier", "Log-loss"))
+```
+
+```{r}
+#| tbl-cap: "Rapports de cotes et intervalles de confiance de Wald à 95 %"
+knitr::kable(x$coefficients[c("terme", "odds_ratio", "ic95_bas", "ic95_haut")],
+  digits = 3, col.names = c("Terme", "Rapport de cotes", "Borne basse", "Borne haute"))
+```
+
+Les diagnostics de convergence, d’influence et de calibration sont disponibles
+dans `resultats.rds` et le notebook de modélisation ; aucun point influent n’est
+supprimé automatiquement. Les rapports de cotes expriment des associations
+conditionnelles, pas des différences de probabilités ni des effets causaux.
+La discrimination limitée et la provenance synthétique excluent un usage de
+prédiction individuelle réelle.
+
+## Résultats descriptifs
+
+```{r}
+#| fig-cap: "Inscriptions annuelles dans la population simulée"
+#| fig-alt: "Courbe des inscriptions synthétiques par année, dont les effectifs exacts sont donnés dans le tableau de population."
+#| fig-width: 8
+#| fig-height: 4
+ggplot2::ggplot(x$description$inscriptions$annuel,
+  ggplot2::aes(annee_universitaire, n_inscriptions, group = 1)) +
+  ggplot2::geom_line(colour = "#176B87", linewidth = 1) +
+  ggplot2::geom_point(colour = "#176B87", size = 3) +
+  ggplot2::labs(x = "Année universitaire", y = "Inscriptions fictives") +
+  ggplot2::theme_minimal(base_size = 12)
+```
+
+L’évolution des inscriptions résulte des entrées, poursuites et sorties définies
+par le simulateur. Elle ne mesure aucune évolution démographique de l’UPEC.
+Les résultats de réussite et de parcours doivent être lus avec les exclusions
+et la couverture, puis contextualisés par formation et niveau lorsque la
+granularité des données le permet. Les exports actuels des tableaux de bord
+sont agrégés : ils ne proposent pas de filtre par formation.
+
+## Indicateurs décisionnels
+
+Le tableau distingue effectifs et pourcentages. « Non observable » correspond
+notamment aux transitions de fin de période ; cette valeur ne doit jamais être
+remplacée par zéro. Les indicateurs scolaires portent sur l’année d’inscription,
+ceux du devenir sur le millésime du diplôme et son type.
+
+```{r}
+#| tbl-cap: "Répertoire des dix indicateurs"
+knitr::kable(unique(ind[c("id", "libelle", "unite")]),
+  col.names = c("Identifiant", "Indicateur", "Unité"))
+```
+
+```{r}
+#| tbl-cap: "Valeurs contrôlées : numérateurs, dénominateurs et statuts"
+knitr::kable(ind[c("id", "annee_universitaire", "type_diplome", "numerateur",
+  "denominateur", "valeur", "statut")], digits = 2,
+  col.names = c("ID", "Année", "Diplôme", "N", "D", "Valeur", "Statut"))
+```
+
+Les exclusions, les valeurs manquantes, la couverture et la population de
+référence restent disponibles dans le CSV complet `indicateurs.csv` du pipeline.
+Leur consultation accompagne toute réutilisation de ces taux.
+
+## Recommandations de pilotage
+
+Les propositions suivantes illustrent une démarche professionnelle. Leur
+application réelle nécessiterait des données réelles autorisées, des échanges
+avec les équipes et une validation institutionnelle.
+
+```{r}
+#| results: asis
+for (i in seq_len(nrow(x$constats))) {
+  z <- x$constats[i, ]
+  cat("\n\n### ", z$id, " — ", z$titre, "\n\n", sep = "")
+  cat("**Périmètre :** ", z$millesime, "\n\n", sep = "")
+  cat("**Résultat :** ", z$resultat, "\n\n", sep = "")
+  cat("**Interprétation :** ", z$interpretation, "\n\n", sep = "")
+  cat("**Implication métier :** ", z$implication_metier, "\n\n", sep = "")
+  cat("**Recommandation :** ", z$recommandation, "\n\n", sep = "")
+}
+```
+
+## Limites et précautions
+
+Toutes les distributions, associations et trajectoires sont produites par un
+simulateur. Les différences ne constituent pas des constats sur une université
+réelle. L’intervalle d’un coefficient décrit l’incertitude du modèle ajusté,
+sans couvrir l’incertitude du choix du mécanisme de simulation.
+
+La fenêtre de trois ans limite le suivi, les sorties sont observées seulement
+dans le champ et les enquêtes restent exposées à la non-réponse. La structure
+des niveaux et formations impose des restrictions aux comparaisons.
+L’étude `notebooks/09_analyse_causale.qmd` ne retient aucune identification
+causale crédible : aucun effet n’est fabriqué ou interprété comme causal.
+
+Les interfaces Shiny et Power BI facilitent la lecture sans supprimer ces
+limites. Le modèle Power BI protège les agrégations ambiguës entre plusieurs
+millésimes ; la lecture des statuts et des dénominateurs reste nécessaire.
+
+## Reproductibilité et accès aux livrables
+
+Exécuter les commandes suivantes depuis la racine du projet, dans une session R
+activant `.Rprofile`. `renv::restore()` restaure les versions du lockfile ;
+`renv::snapshot()` enregistre des dépendances modifiées après validation.
+
+```r
+renv::restore()
+testthat::test_dir("tests/testthat", stop_on_failure = TRUE)
+source("scripts/run_reports.R")
+renv::status()
+```
+
+`scripts/run_reports.R` configure puis exécute le graphe `targets` complet,
+reconstruction et rapports consommateurs inclus. Les tâches de VS Code
+permettent également de le lancer. Les notebooks `00` à `11` documentent les
+étapes ; leurs fonctions métier sont centralisées dans `R/`.
+
+Pour actualiser les exports des deux interfaces, exécuter
+`source("scripts/refresh_dashboards.R")`, puis **Actualiser** dans Power BI
+Desktop. Ouvrir `powerbi/Observatoire.pbip` pour le rapport à cinq pages.
+Lancer `source("scripts/run_shiny.R")` pour l’application locale Shiny.
+`docs/tableaux_de_bord.md` décrit les filtres, les mesures et les recettes
+réellement réalisées. L’actualisation locale est automatisée côté R ; aucune
+publication Power BI Service ni passerelle ou planification système n’est
+configurée.
+
+Le présent document lit les résultats contrôlés sans relancer les analyses.
+Depuis PowerShell, avec R et Quarto accessibles, le rendre ainsi :
+
+```powershell
+quarto render docs/rapport_final.qmd --to html --output-dir ../outputs/rapport_final
+```
+
+Le format HTML embarque ses ressources. Un rendu PDF utilise la même source
+avec `--to pdf` et nécessite une installation LaTeX disposant de LuaLaTeX.
+Cette dépendance reste optionnelle.
+
+```{r}
+#| tbl-cap: "Environnement du rendu"
+knitr::kable(data.frame(Element = c("R", "Quarto", "Gel des données", "Rendu"),
+  Valeur = c(R.version.string, as.character(quarto::quarto_version()),
+    x$qualite$metadata$date_gel, format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"))))
+```
+
+```{r}
+#| tbl-cap: "Empreintes des produits consommés"
+knitr::kable(evidence$produits, col.names = c("Produit", "MD5"))
+```
+
+Les sources détaillées sont consignées dans le fichier `sources.csv` associé
+aux produits. Un nouveau rendu constitue une photographie d’un calcul donné ;
+une modification de source exige d’abord l’actualisation du pipeline.

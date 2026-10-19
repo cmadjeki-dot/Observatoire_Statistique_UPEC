@@ -1,0 +1,120 @@
+---
+title: "Observatoire statistique — rapport de pilotage"
+subtitle: "Démonstrateur personnel indépendant de l’UPEC — données entièrement synthétiques"
+lang: fr
+format:
+  html:
+    toc: true
+    embed-resources: true
+params:
+  pipeline_directory: "outputs/pipeline_rapport"
+  rendering: false
+execute:
+  echo: false
+  warning: true
+  message: false
+  error: false
+  cache: false
+---
+
+```{r}
+#| include: false
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "pipeline", "pipeline.R"))
+source(here::here("R", "pipeline", "report.R"))
+evidence <- load_pipeline_report(params$pipeline_directory, params$rendering)
+x <- evidence$resultats
+```
+
+## Périmètre et lecture
+
+Ce document décrit une population fictive. **Aucun résultat n’est officiel ni
+attribuable à l’UPEC réelle.** Les observations sont gelées au 30 septembre 2026.
+Le rapport lit les exports contrôlés du pipeline ; il n’exécute ni simulation,
+ni nettoyage, ni estimation statistique.
+
+Les inscriptions annuelles se distinguent des personnes distinctes sur la période.
+La validation porte sur les décisions connues ; elle diffère de la diplomation.
+Une sortie observée ne prouve pas un abandon. Les transitions finales sont
+censurées, les non-réponses ne sont pas des réponses négatives, et les associations
+ne démontrent aucun effet causal.
+
+## Population et inscriptions
+
+```{r}
+knitr::kable(x$description$inscriptions$annuel, digits = 2)
+knitr::kable(x$description$inscriptions$panel)
+ggplot2::ggplot(x$description$inscriptions$annuel,
+  ggplot2::aes(annee_universitaire, n_inscriptions, group = 1)) +
+  ggplot2::geom_line() + ggplot2::geom_point(size = 3) +
+  ggplot2::labs(x = "Année universitaire", y = "Inscriptions synthétiques") +
+  ggplot2::theme_minimal()
+```
+
+## Dix indicateurs prioritaires
+
+Chaque ligne conserve son millésime, sa population, ses exclusions et sa couverture.
+Une valeur absente reste absente ; le statut explique sa non-diffusion.
+Les taux de sous-groupes ne doivent pas être moyennés pour obtenir un taux global.
+
+```{r}
+knitr::kable(x$indicateurs$indicateurs[c("id", "annee_universitaire", "type_diplome",
+  "numerateur", "denominateur", "couverture_pct", "valeur", "statut")], digits = 2)
+```
+
+## Parcours des cohortes
+
+```{r}
+knitr::kable(x$suivi, digits = 2)
+```
+
+Seuls les horizons observables sont comparables. La présence dans le champ
+simulé ne décrit pas les inscriptions éventuelles dans un autre établissement.
+
+## Évaluation des formations et devenir
+
+```{r}
+knitr::kable(x$enquetes$evaluation_annuelle, digits = 2)
+knitr::kable(x$enquetes$devenir_cohortes, digits = 2)
+```
+
+La satisfaction concerne les réponses valides. Le devenir porte uniquement sur
+les collectes closes et les diplômes de référence éligibles. Les répondants ne
+représentent pas automatiquement l’ensemble des invités.
+
+## Modélisation exploratoire
+
+```{r}
+knitr::kable(x$evaluation$performances, digits = 4)
+knitr::kable(x$coefficients, digits = 3)
+```
+
+Le modèle conserve la coupe initiale et sa séparation apprentissage/test.
+Les coefficients expriment des associations conditionnelles dans le simulateur.
+Ces performances ne justifient aucun ciblage individuel ni usage sur des données
+réelles ; aucun effet causal n’est estimé.
+
+## Constats et recommandations à instruire
+
+```{r}
+#| results: asis
+for (i in seq_len(nrow(x$constats))) {
+  z <- x$constats[i, ]
+  cat("\n\n### ", z$id, " — ", z$titre, "\n\n", sep = "")
+  cat("**Périmètre :** ", z$millesime, "\n\n", sep = "")
+  print(knitr::kable(data.frame(rubrique = c("Résultat", "Interprétation",
+    "Implication métier", "Recommandation"), contenu = c(z$resultat,
+    z$interpretation, z$implication_metier, z$recommandation))))
+}
+```
+
+## Traçabilité
+
+```{r}
+knitr::kable(evidence$produits)
+```
+
+Les empreintes des sources de calcul sont dans `sources.csv` ; celles des entrées
+de ce rendu figurent dans le manifeste compagnon `rapport_pilotage_sources.csv`.
+Un HTML est une photographie du calcul. Pour le considérer comme courant,
+le dernier lancement doit être réussi et les empreintes doivent concorder.

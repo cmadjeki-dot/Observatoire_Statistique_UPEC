@@ -1,0 +1,63 @@
+---
+title: "Note de pilotage — synthèse pour les responsables de formation"
+subtitle: "Données synthétiques — démonstrateur indépendant de l’UPEC"
+lang: fr
+format:
+  html:
+    toc: true
+    embed-resources: true
+params:
+  pipeline_directory: "outputs/pipeline_rapport"
+  rendering: false
+execute:
+  echo: false
+  warning: true
+  message: false
+  error: false
+  cache: false
+---
+
+```{r}
+#| include: false
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "pipeline", "pipeline.R"))
+source(here::here("R", "pipeline", "report.R"))
+evidence <- load_pipeline_report(params$pipeline_directory, params$rendering)
+findings <- evidence$resultats$constats
+```
+
+## Usage de cette note
+
+Cette synthèse est destinée à une lecture sans compétence statistique.
+Elle restitue les constats déjà calculés, sans nouvelle analyse.
+**Aucun chiffre ne décrit l’UPEC réelle.** Le gel des observations est fixé
+au 30 septembre 2026 ; chaque constat conserve son propre millésime.
+
+Les recommandations proposent des vérifications méthodologiques. Elles ne
+constituent ni classement de formations, ni mesure de l’effet d’une intervention.
+
+## Huit constats pour préparer les échanges
+
+```{r}
+#| results: asis
+for (i in seq_len(nrow(findings))) {
+  z <- findings[i, ]
+  cat("\n\n### ", z$titre, "\n\n", sep = "")
+  cat("**Champ et période :** ", z$millesime, "\n\n", sep = "")
+  cat("**Résultat :** ", z$resultat, "\n\n", sep = "")
+  cat("**Lecture :** ", z$interpretation, "\n\n", sep = "")
+  cat("**Implication :** ", z$implication_metier, "\n\n", sep = "")
+  cat("**À instruire :** ", z$recommandation, "\n\n", sep = "")
+}
+```
+
+## Précautions avant une décision
+
+Vérifier les populations, les dénominateurs et la couverture avant de comparer
+deux taux. Distinguer validation et diplôme, sortie observée et abandon,
+non-réponse et réponse négative. Les transitions finales sont censurées et
+aucune association statistique ne permet ici une conclusion causale.
+
+Cette note est une photographie des exports contrôlés. Le dernier lancement
+doit être réussi pour la considérer comme courante. Son manifeste compagnon
+`note_pilotage_sources.csv` identifie les entrées du rendu.

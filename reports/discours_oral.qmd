@@ -1,0 +1,107 @@
+---
+title: "Discours oral — 3 à 5 minutes"
+subtitle: "Observatoire statistique : démonstrateur personnel indépendant de l’UPEC"
+lang: fr
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: false
+  message: false
+  warning: true
+  error: false
+  cache: false
+---
+
+```{r}
+#| include: false
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "pipeline", "pipeline.R"))
+source(here::here("R", "pipeline", "report.R"))
+evidence <- load_pipeline_report("outputs/pipeline_rapport")
+x <- evidence$resultats
+value <- function(id) {
+  row <- x$indicateurs$indicateurs
+  row <- row[row$id == id & row$annee_universitaire == "2025-2026", , drop = FALSE]
+  stopifnot(nrow(row) == 1L, row$statut == "diffusable", !is.na(row$valeur))
+  formatC(row$valeur, format = "f", digits = 2, decimal.mark = ",")
+}
+```
+
+Durée cible : environ quatre minutes, à confirmer par une répétition à voix haute.
+Le texte lu commence ci-dessous. Les chiffres proviennent des exports contrôlés ;
+aucun résultat n’est officiel ni représentatif de l’UPEC réelle.
+
+## Discours à prononcer
+
+Bonjour. J’ai conçu un démonstrateur d’observatoire statistique universitaire
+pour répondre à un besoin concret : aider des responsables de formation à
+comprendre les inscriptions, la réussite, les parcours et les enquêtes, sans
+leur demander de maîtriser les méthodes statistiques. Ce projet personnel
+est indépendant de l’UPEC. Les données sont entièrement fictives et les
+résultats ne décrivent pas la situation réelle de l’université.
+
+La question de départ est la suivante : comment articuler les données de
+scolarité et les enquêtes pour produire des indicateurs fiables et utiles au
+pilotage ? J’ai simulé quinze mille étudiants sur trois années universitaires,
+de 2023-2024 à 2025-2026. Un identifiant stable permet de suivre les personnes,
+en distinguant leurs inscriptions annuelles, leurs résultats, leurs diplômes
+et leurs réponses aux enquêtes.
+
+J’ai d’abord défini les unités statistiques et les règles de calcul. Par
+exemple, la réussite annuelle correspond ici à la validation parmi les
+décisions connues. Elle ne mesure pas l’obtention d’un diplôme, et une décision
+inconnue n’est pas comptée comme un échec. Chaque indicateur conserve donc son
+numérateur, son dénominateur, sa période et ses limites.
+
+La qualité constitue le deuxième pilier du travail. J’ai créé séparément une
+version comportant des anomalies contrôlées pour tester leur détection. Les
+contrôles portent notamment sur les doublons, les clés entre tables, les
+valeurs impossibles et la cohérence des parcours. Après correction documentée,
+les `r x$qualite$metadata$n_regles` règles ne signalent plus d’alerte. Cela prouve
+la conformité aux contrôles implémentés, pas l’absence de toute erreur imaginable.
+Les données originales et le journal des corrections restent conservés.
+
+Les analyses illustrent ensuite plusieurs précautions utiles. En 2025-2026,
+la validation atteint `r value("I03")` pour cent parmi les décisions connues.
+Ce taux doit être lu avec la couverture des résultats et les profils des
+inscrits. Pour les parcours, je compare les cohortes à durée de suivi égale.
+Une sortie du champ observé n’est pas assimilée à un abandon, et les transitions
+de la dernière année restent non observables.
+
+Les enquêtes montrent aussi pourquoi les dénominateurs comptent. En 2025-2026,
+la participation est de `r value("I06")` pour cent, tandis que la satisfaction
+favorable atteint `r value("I07")` pour cent des réponses valides à l’item.
+Il serait incorrect de généraliser cette satisfaction à tous les étudiants.
+Pour le devenir des diplômés, je distingue également emploi hors études,
+poursuite d’études et couverture de l’enquête.
+
+J’ai complété ces descriptions par une régression logistique exploratoire,
+avec un échantillon de test séparé. Sa discrimination reste limitée et ses
+coefficients décrivent des associations dans le simulateur. Je n’en déduis
+aucun effet causal ni outil de prédiction individuelle réelle.
+
+Pour rendre le travail accessible, j’ai construit un tableau de bord Shiny et
+un projet Power BI avec cinq pages : inscriptions, réussite, parcours, enquêtes
+et insertion. Ils s’appuient sur les mêmes résultats contrôlés. R automatise
+les traitements, targets organise leurs dépendances, renv fixe les versions
+des packages et Quarto produit les restitutions. Les interfaces ont été testées
+localement ; aucun service de production n’est déployé.
+
+L’intérêt pour un observatoire universitaire est donc une chaîne explicable,
+testable et reproductible, qui relie la donnée à une question de pilotage.
+Sur des données réelles, il faudrait compléter ce travail par le cadrage
+juridique, la sécurisation des accès et la validation métier avec les équipes.
+Mon objectif est d’éclairer les décisions en explicitant leurs bases et leurs
+limites, sans remplacer le jugement des responsables.
+
+## Repères de répétition
+
+Le besoin métier et les données occupent environ la première minute ; les
+définitions, la qualité et les résultats les deux minutes suivantes ; les outils,
+les limites et l’intérêt professionnel la dernière minute. Ces repères sont
+indicatifs : aucune durée n’est mesurée sans lecture chronométrée.
+
+Marquer une pause après l’avertissement sur les données fictives, après la
+définition de la réussite et avant la conclusion. Ne pas ajouter les détails
+des coefficients ou les commandes R : ils restent disponibles pour les questions.

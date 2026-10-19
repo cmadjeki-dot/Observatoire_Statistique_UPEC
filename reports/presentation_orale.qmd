@@ -1,0 +1,214 @@
+---
+title: "Comprendre les parcours, éclairer le pilotage"
+subtitle: "Observatoire statistique — démonstrateur indépendant de l’UPEC"
+lang: fr
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    embed-resources: true
+    transition: none
+    width: 1280
+    height: 800
+    center: false
+    footer: "Données entièrement synthétiques — résultats non officiels"
+execute:
+  echo: false
+  message: false
+  warning: true
+  error: false
+  cache: false
+---
+
+```{r}
+#| include: false
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "pipeline", "pipeline.R"))
+source(here::here("R", "pipeline", "report.R"))
+evidence <- load_pipeline_report("outputs/pipeline_rapport")
+x <- evidence$resultats
+finding <- function(id, field = "resultat") {
+  row <- x$constats[x$constats$id == id, , drop = FALSE]
+  stopifnot(nrow(row) == 1L, field %in% names(row))
+  as.character(row[[field]])
+}
+```
+
+## Une commande de pilotage
+
+**Comment articuler scolarité et enquêtes pour éclairer l’offre de formation ?**
+
+- Suivre inscriptions, réussite et parcours.
+- Lire satisfaction et devenir avec leur couverture.
+- Fournir des outils utilisables sans compétence statistique.
+
+**Aucune donnée réelle. Aucun résultat officiel de l’UPEC.**
+
+::: {.notes}
+Durée indicative totale : 10 à 12 minutes, puis échanges.
+Présenter le projet comme une simulation professionnelle personnelle.
+Les constats démontrent une méthode, pas la situation réelle d’un établissement.
+:::
+
+## Une population suivie sur trois années
+
+**15 000 personnes distinctes — 31 816 inscriptions**
+
+2023-2024 · 2024-2025 · 2025-2026
+
+- Identifiant stable ; onze tables relationnelles.
+- Résultats, parcours, diplômes et enquêtes liés sans confondre leurs unités.
+- Gel des observations au `r x$qualite$metadata$date_gel`.
+
+::: {.notes}
+Une personne peut être inscrite plusieurs années. Ne jamais additionner les
+effectifs annuels pour obtenir le nombre d’étudiants distincts du panel.
+Les mécanismes du générateur expliquent les distributions observées.
+:::
+
+## La qualité précède les indicateurs
+
+**`r x$qualite$metadata$n_regles` règles — `r x$qualite$metadata$n_alertes` alerte après nettoyage**
+
+- Variante anomale et journal d’injections conservés séparément.
+- Clés, domaines, temporalité et intégrité référentielle contrôlés.
+- Résultats refusés si le calcul échoue ou si les empreintes divergent.
+
+::: {.notes}
+Le journal permet de restaurer la vérité simulée ; cette connaissance ne serait
+pas disponible sur des données réelles. Zéro alerte signifie conformité aux
+règles implémentées, pas absence garantie de toute erreur possible.
+:::
+
+## Inscriptions et réussite : deux lectures complémentaires
+
+**Inscriptions — `r x$constats$millesime[x$constats$id == "C01"]`**
+
+`r finding("C01")`
+
+**Validation annuelle — `r x$constats$millesime[x$constats$id == "C02"]`**
+
+`r finding("C02")`
+
+::: {.notes}
+Lire la réussite avec la couverture et les caractéristiques des inscrits.
+Les décisions inconnues ne sont pas des échecs. La validation annuelle ne
+mesure pas l’obtention d’un diplôme. Éviter une conclusion d’attractivité à
+partir du seul volume d’inscriptions.
+:::
+
+## Parcours : comparer à durée égale
+
+**Présence à un an des deux cohortes L1 observables**
+
+`r finding("C04")`
+
+**Transitions — `r x$constats$millesime[x$constats$id == "C03"]`**
+
+`r finding("C03")`
+
+::: {.notes}
+Le dénominateur du suivi est la cohorte initiale ; celui des transitions est
+l’effectif de départ éligible. Une absence dans le champ n’est pas une preuve
+d’abandon. La cohorte récente n’a pas encore le même recul que la première.
+:::
+
+## Enquêtes : satisfaction et participation ensemble
+
+**`r x$constats$millesime[x$constats$id == "C05"]`**
+
+`r finding("C05")`
+
+- Les satisfaits sont rapportés aux réponses valides à l’item.
+- La non-réponse n’équivaut pas à une insatisfaction.
+- Aucun score composite imposé aux trois items indépendants.
+
+::: {.notes}
+Le protocole et le questionnaire LimeSurvey sont des prototypes documentés.
+Aucune collecte réelle n’a été réalisée. La composition des répondants peut
+différer de celle des invités ; le taux de participation ne suffit pas à
+démontrer la représentativité.
+:::
+
+## Devenir : des populations à distinguer
+
+**`r x$constats$millesime[x$constats$id == "C07"]`**
+
+`r finding("C07")`
+
+**Emploi hors études et poursuite d’études ont des dénominateurs différents.**
+
+::: {.notes}
+Le dernier diplôme mature de chaque personne est retenu, avec observation à
+six mois et collecte close à sept mois. La priorité donnée aux études dans la
+classification doit être expliquée avant toute comparaison licence/master.
+Ne pas généraliser les réponses à tous les diplômés sans examiner la non-réponse.
+:::
+
+## Modèle exploratoire : une portée limitée
+
+`r finding("C08")`
+
+- Régression logistique sur la coupe initiale ; une ligne par étudiant.
+- Apprentissage et test séparés ; sélection sur cas complets documentée.
+- Associations conditionnelles, sans effet causal identifié.
+
+**Aucun usage de prédiction individuelle réelle.**
+
+::: {.notes}
+Une AUC proche de 0,59 indique une discrimination limitée dans ce simulateur.
+Le modèle ne prouve pas qu’une caractéristique cause une différence de réussite.
+Les données ne permettent pas de fabriquer un effet causal crédible.
+:::
+
+## Deux interfaces, les mêmes résultats contrôlés
+
+**Shiny et Power BI : cinq pages**
+
+Inscriptions · Réussite · Parcours · Enquêtes · Insertion
+
+- Année de référence et diplôme pour l’insertion.
+- Numérateur, dénominateur, couverture et statut visibles.
+- Actualisation R, puis Actualiser dans Power BI Desktop.
+
+::: {.notes}
+Démonstration facultative : ouvrir Shiny local ou le projet Observatoire.pbip.
+Choisir Insertion, année 2024-2025, licence : trois indicateurs doivent rester.
+Montrer Parcours en dernière année : les censures restent absentes, pas nulles.
+Pas de filtre formation dans ces exports agrégés. Ne pas dépendre d’un serveur
+actif pour terminer l’oral : les diapositives contiennent les résultats essentiels.
+:::
+
+## Recommandations à instruire
+
+- **Capacités :** contextualiser les volumes par formation et niveau.
+- **Réussite :** examiner couverture, profils et décisions inconnues.
+- **Enquêtes :** suivre participation, composition et réponses valides.
+- **Parcours :** comparer les cohortes à horizon identique.
+
+**Ces propositions illustrent une démarche ; elles ne prescrivent aucune
+action sur une formation réelle.**
+
+::: {.notes}
+Les huit constats détaillés du rapport final relient résultat, interprétation,
+implication métier et recommandation. Une application institutionnelle requerrait
+des données autorisées, une validation métier et des échanges avec les équipes.
+:::
+
+## Reproduire et prolonger le démonstrateur
+
+**`renv` → tests → `targets` → exports contrôlés → restitutions**
+
+- Rapport final, dictionnaires, notebooks et guides disponibles.
+- Recettes Shiny et Power BI réalisées localement.
+- Restent à instruire : validation métier, publication et déploiement.
+
+**Discussion : quels indicateurs et quelles granularités seraient prioritaires
+pour les utilisateurs ?**
+
+::: {.notes}
+Lancer scripts/refresh_dashboards.R après restauration renv pour reconstruire
+les calculs et exports. Le rapport final et cette présentation se rendent
+séparément avec Quarto. Aucun service publié ou actualisation planifiée système
+n’est configuré. Le PDF demeure optionnel et nécessite LaTeX.
+:::

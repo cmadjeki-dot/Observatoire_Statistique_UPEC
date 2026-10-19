@@ -1,0 +1,371 @@
+---
+title: "Simulation de jury — 30 questions et réponses"
+subtitle: "Démonstrateur personnel indépendant de l’UPEC — résultats non officiels"
+lang: fr
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    embed-resources: true
+execute:
+  echo: false
+  message: false
+  warning: true
+  error: false
+---
+
+```{r}
+#| include: false
+source(here::here("R", "utils", "paths.R"))
+source(here::here("R", "pipeline", "pipeline.R"))
+source(here::here("R", "pipeline", "report.R"))
+evidence <- load_pipeline_report("outputs/pipeline_rapport")
+x <- evidence$resultats
+```
+
+Commencer par la réponse courte ; développer si le jury relance. S’exercer à
+répondre sans lire, puis vérifier les termes et le périmètre. Les réponses
+décrivent le projet réellement construit, sans revendiquer de validation
+institutionnelle, de collecte réelle ou de déploiement en production.
+
+## Q01 — Quel besoin métier avez-vous traité ?
+
+**Réponse courte :** rendre les données universitaires lisibles pour le pilotage.
+
+**Réponse détaillée :** le démonstrateur relie inscriptions, réussite, parcours,
+évaluation et devenir dans une chaîne contrôlée. Les responsables disposent
+d’indicateurs définis, accompagnés de leurs effectifs, couvertures et limites.
+Il simule une commande professionnelle ; il ne décrit pas l’UPEC réelle.
+
+**Piège à éviter :** présenter un résultat fictif comme un constat institutionnel.
+
+## Q02 — Pourquoi utiliser R et VS Code ?
+
+**Réponse courte :** pour conserver des traitements explicites et reproductibles
+dans un espace de développement commun.
+
+**Réponse détaillée :** R porte les fonctions statistiques, les tests et les
+interfaces. VS Code rassemble scripts, terminal PowerShell, Quarto et Git.
+Les chemins de traitements sont relatifs avec `here` et `fs` ; les chemins
+locaux d’exécutables restent dans la configuration du poste.
+
+**Piège à éviter :** affirmer qu’un éditeur garantit la qualité statistique.
+
+## Q03 — Comment organisez-vous les transformations avec tidyverse ?
+
+**Réponse courte :** je sépare sélection, transformation, regroupement et agrégation.
+
+**Réponse détaillée :** les modules de `R/` rendent les transformations réutilisables
+et inspectables. Avant une agrégation, je fixe l’unité et les groupes ; je vérifie
+les effectifs obtenus. Un pipeline lisible ne dispense pas de contrôler les types,
+les valeurs manquantes et la cardinalité des jointures.
+
+**Piège à éviter :** oublier un regroupement actif ou supprimer tous les NA sans justification.
+
+## Q04 — Comment empêchez-vous les doubles comptes dans les jointures ?
+
+**Réponse courte :** je contrôle unicité des clés et cardinalité attendue.
+
+**Réponse détaillée :** une inscription doit retrouver au plus une ligne dans
+chaque table de référence concernée. Je contrôle les références absentes et les
+dimensions avant/après. Les réponses d’enquête ne sont pas jointes sans précaution
+à une table d’inscriptions si cela multiplie les lignes.
+
+**Piège à éviter :** utiliser `distinct()` après coup pour masquer une jointure incorrecte.
+
+## Q05 — Comment assurez-vous la cohérence des données synthétiques ?
+
+**Réponse courte :** par des règles de simulation documentées et des contrôles relationnels.
+
+**Réponse détaillée :** les identifiants sont stables, les tables liées et les dates
+cohérentes avec la fenêtre d’observation. Les graines rendent les générations
+reproductibles. Les relations plausibles restent choisies par le simulateur :
+elles ne valident pas les distributions d’une université réelle.
+
+**Piège à éviter :** confondre plausibilité et représentativité.
+
+## Q06 — Que prouvent vos contrôles qualité ?
+
+**Réponse courte :** la conformité aux règles implémentées, pas une perfection universelle.
+
+**Réponse détaillée :** le calcul courant satisfait
+`r x$qualite$metadata$n_regles` règles avec
+`r x$qualite$metadata$n_alertes` alerte après nettoyage. Les anomalies injectées
+testent des cas connus ; une anomalie peut déclencher plusieurs alertes.
+La connaissance de la vérité simulée facilite un nettoyage qui devrait être
+réévalué sur des sources réelles.
+
+**Piège à éviter :** assimiler nombre d’alertes, anomalies et lignes erronées.
+
+## Q07 — Comment traitez-vous les valeurs manquantes ?
+
+**Réponse courte :** selon leur signification, sans imputation automatique générale.
+
+**Réponse détaillée :** décision inconnue, non-réponse, non-concerné et horizon
+non observable sont distingués. Les indicateurs publient leur couverture.
+La modélisation retient des cas complets et documente la sélection, sans prétendre
+éliminer un éventuel biais de données manquantes.
+
+**Piège à éviter :** remplacer les absences par zéro ou supposer les manquants aléatoires.
+
+## Q08 — Quelle est votre définition de la réussite ?
+
+**Réponse courte :** une validation annuelle parmi les décisions connues.
+
+**Réponse détaillée :** le numérateur compte les validations ; le dénominateur
+regroupe validations et non-validations connues dans le champ éligible.
+Les décisions inconnues sont exclues de ce taux et leur couverture est présentée.
+La diplomation repose sur une autre population et une autre décision.
+
+**Piège à éviter :** compter les inconnus comme échecs ou annoncer un taux de diplôme.
+
+## Q09 — Pourquoi distinguer étudiants et inscriptions ?
+
+**Réponse courte :** une personne peut être observée plusieurs années.
+
+**Réponse détaillée :** le panel compte 15 000 personnes distinctes et 31 816
+inscriptions. Additionner les effectifs annuels compte des observations annuelles.
+Le suivi utilise l’identifiant stable pour reconstruire les trajectoires sans
+confondre volume administratif et population distincte.
+
+**Piège à éviter :** annoncer la somme des inscriptions comme le nombre de personnes.
+
+## Q10 — Comment comparez-vous les cohortes ?
+
+**Réponse courte :** à horizon identique et avec une définition stable de la cohorte.
+
+**Réponse détaillée :** les cohortes L1 suivent les premières observations en L1.
+La présence est rapportée à leur effectif initial ; les transitions utilisent
+les inscrits de l’année de départ. La cohorte récente n’a pas encore tous les
+horizons des cohortes anciennes.
+
+**Piège à éviter :** comparer une présence à un an à une présence à deux ans.
+
+## Q11 — Une sortie observée est-elle un abandon ?
+
+**Réponse courte :** non, elle indique une absence dans le champ observé.
+
+**Réponse détaillée :** une personne peut être diplômée, inscrite ailleurs ou
+revenir ultérieurement. Le panel ne permet pas de qualifier toutes ces situations.
+La transition suivant 2025-2026 est censurée : elle ne devient ni sortie ni échec.
+
+**Piège à éviter :** publier un taux d’abandon sans définition ni source complémentaire.
+
+## Q12 — Comment calculez-vous le taux de réponse à une enquête ?
+
+**Réponse courte :** répondants de la vague divisés par invités éligibles.
+
+**Réponse détaillée :** les invitations restent au dénominateur, y compris pour
+les non-répondants. Les réponses à l’item, les non-concernés et la complétude
+constituent des mesures distinctes. Le taux de satisfaction utilise les réponses
+valides de l’item, pas l’ensemble des invités.
+
+**Piège à éviter :** confondre participation, complétude et satisfaction.
+
+## Q13 — Un bon taux de réponse garantit-il l’absence de biais ?
+
+**Réponse courte :** non, la composition des répondants compte aussi.
+
+**Réponse détaillée :** je compare répondants et invités sur les caractéristiques
+disponibles. Un redressement exigerait une population de référence et des
+hypothèses défendables sur la réponse. Une relance peut augmenter la participation
+sans corriger toute sélection ; aucun redressement n’est revendiqué ici.
+
+**Piège à éviter :** considérer les non-répondants comme satisfaits ou insatisfaits.
+
+## Q14 — Comment avez-vous utilisé LimeSurvey ?
+
+**Réponse courte :** j’ai préparé un protocole et un questionnaire type, sans collecte réelle.
+
+**Réponse détaillée :** les documents décrivent thèmes, codes, modalités, filtres
+et tests préalables. Une mise en œuvre réelle nécessiterait une recette des
+cheminements et de l’export, ainsi qu’un cadrage des invitations et des accès.
+Aucune instance, import `.lss` ou invitation réelle n’a été exécuté.
+
+**Piège à éviter :** présenter un questionnaire documenté comme une enquête déployée.
+
+## Q15 — Pourquoi ne pas calculer un alpha de Cronbach ?
+
+**Réponse courte :** les trois items simulés indépendants ne définissent pas une échelle.
+
+**Réponse détaillée :** un score composite exige d’abord une justification
+conceptuelle et une étude de sa structure. Un coefficient de cohérence interne
+ne démontre ni unidimensionnalité ni validité. Ici, les items sont restitués
+séparément et aucun score psychométrique n’est forcé.
+
+**Piège à éviter :** choisir une méthode uniquement parce que plusieurs items sont disponibles.
+
+## Q16 — Comment définissez-vous l’insertion des diplômés ?
+
+**Réponse courte :** je distingue emploi hors études, poursuite d’études et couverture.
+
+**Réponse détaillée :** le dernier diplôme mature par personne est retenu, avec
+situation à six mois et collecte close à sept mois. Les études sont prioritaires
+dans la classification. Le taux d’emploi hors études et la part en études ont
+des dénominateurs différents, explicités dans le catalogue.
+
+**Piège à éviter :** extrapoler les réponses à tous les diplômés ou mélanger les populations.
+
+## Q17 — Pourquoi une régression logistique ?
+
+**Réponse courte :** la cible est binaire parmi les décisions connues.
+
+**Réponse détaillée :** le GLM décrit des probabilités conditionnelles de validation
+sur la coupe initiale avec une observation par personne. La formule et les
+références sont documentées avant estimation. Ce modèle reste exploratoire,
+sur cas complets et limité au mécanisme simulé.
+
+**Piège à éviter :** présenter un ajustement statistique comme une explication causale.
+
+## Q18 — Pourquoi ne pas imposer un modèle mixte par formation ?
+
+**Réponse courte :** la structure et le nombre de groupes ne le justifient pas automatiquement.
+
+**Réponse détaillée :** le choix actuel évite les répétitions d’une même personne.
+Les contrastes de formation sont définis au sein des cycles pour tenir compte
+de leur structure. Une extension longitudinale demanderait de réexaminer
+dépendances, nombre de groupes, identifiabilité et question métier.
+
+**Piège à éviter :** croire qu’une méthode plus complexe est nécessairement meilleure.
+
+## Q19 — Comment interprétez-vous un rapport de cotes ?
+
+**Réponse courte :** comme un rapport de cotes conditionnel à la référence et aux covariables.
+
+**Réponse détaillée :** ce n’est ni un rapport de probabilités ni une différence
+en points. L’intervalle de Wald renseigne l’incertitude du modèle sous ses
+hypothèses. Il ne couvre pas l’incertitude du mécanisme de simulation et ne
+permet pas d’annoncer un effet causal.
+
+**Piège à éviter :** traduire un rapport de cotes de deux par « probabilité doublée ».
+
+## Q20 — Que disent vos performances et diagnostics ?
+
+**Réponse courte :** la discrimination sur test est faible et ne justifie aucun usage individuel réel.
+
+**Réponse détaillée :** l’AUC est proche de 0,59 ; Brier et log-loss sont comparés
+à une référence constante apprise sur l’apprentissage. Calibration, convergence
+et influence sont également examinées. Les observations influentes ne sont
+pas supprimées automatiquement ; le test ne sert pas au réglage du modèle.
+
+**Piège à éviter :** évaluer sur l’apprentissage ou annoncer une performance future garantie.
+
+## Q21 — Quelle différence entre association, prédiction et causalité ?
+
+**Réponse courte :** décrire un lien, anticiper une observation et identifier un effet sont trois objectifs distincts.
+
+**Réponse détaillée :** un prédicteur peut être utile sans être une cause.
+Un effet causal exige une question d’intervention et des hypothèses
+d’identification défendables. Le projet examine leur faisabilité mais n’estime
+aucun effet causal ; le simulateur n’apporte pas une preuve sur le monde réel.
+
+**Piège à éviter :** dire qu’une bourse, une formation ou un profil cause la réussite observée.
+
+## Q22 — Que faudrait-il vérifier au titre du RGPD sur des données réelles ?
+
+**Réponse courte :** cadrer le traitement avec les acteurs compétents, notamment le DPO.
+
+**Réponse détaillée :** il faudrait documenter finalité et base juridique,
+minimisation, durée de conservation, information et droits, sécurité et accès.
+Le démonstrateur ne vaut pas validation d’un futur traitement réel.
+Repère : [CNIL — six grands principes du RGPD](https://cnil.fr/fr/comprendre-le-rgpd/les-six-grands-principes-du-rgpd).
+
+**Piège à éviter :** supposer que le consentement est automatiquement la base applicable.
+
+## Q23 — Un identifiant remplacé suffit-il à anonymiser les données ?
+
+**Réponse courte :** non, la pseudonymisation ne garantit pas l’anonymat.
+
+**Réponse détaillée :** des informations complémentaires peuvent permettre une
+réidentification. L’anonymisation demande une évaluation du risque ; supprimer
+les noms n’est pas une garantie. Ici, les personnes sont générées de toutes pièces.
+Repère : [CNIL — anonymisation](https://cnil.fr/fr/technologies/lanonymisation-de-donnees-personnelles).
+
+**Piège à éviter :** considérer un seuil d’effectif ou une clé hachée comme une preuve universelle d’anonymat.
+
+## Q24 — Comment fiabilisez-vous le tableau de bord Shiny ?
+
+**Réponse courte :** les calculs sont faits en amont et la lecture vérifie les exports.
+
+**Réponse détaillée :** les réactifs filtrent les résultats contrôlés ; le bouton
+d’actualisation les relit sans réestimer les modèles. Une erreur de lecture retire
+les anciennes données de la session. Les tests du serveur et la recette navigateur
+exercent les cinq vues et leurs filtres ; aucun déploiement public n’est revendiqué.
+
+**Piège à éviter :** afficher des données anciennes après un échec sans signaler leur invalidité.
+
+## Q25 — Comment garantissez-vous la cohérence Power BI/R ?
+
+**Réponse courte :** en comparant les résultats DAX natifs aux numérateurs, dénominateurs et valeurs R.
+
+**Réponse détaillée :** les 33 lignes ont été rapprochées, valeurs manquantes comprises.
+Les mesures empêchent les totaux ambigus entre années ou indicateurs et gardent
+les censures. La chaîne locale est actualisation R puis Actualiser dans Desktop ;
+aucun Power BI Service ou planificateur système n’est configuré.
+
+**Piège à éviter :** moyenner les taux ou annoncer un filtre formation absent des exports.
+
+## Q26 — Que vous apporte Quarto ?
+
+**Réponse courte :** des restitutions qui articulent texte, tableaux et résultats exécutés.
+
+**Réponse détaillée :** les notebooks expliquent les analyses et réutilisent les
+fonctions de `R/`. Le rapport final et les supports oraux lisent les exports
+contrôlés. Un rendu HTML est une photographie du calcul ; les sources doivent
+être actualisées avant rendu. Le PDF reste conditionné à la disponibilité de LaTeX.
+
+**Piège à éviter :** confondre un rendu réussi avec une validation statistique ou métier.
+
+## Q27 — Quelle différence entre renv et targets ?
+
+**Réponse courte :** `renv` gère les dépendances logicielles ; `targets` gère les dépendances des calculs.
+
+**Réponse détaillée :** `restore()` reconstruit la bibliothèque depuis le lockfile,
+`snapshot()` enregistre des versions volontairement modifiées. Le graphe suit
+fonctions et entrées, puis réutilise les cibles valides. Les lanceurs du projet
+ajoutent les contrôles d’environnement, le statut et le journal d’exécution.
+
+**Piège à éviter :** croire que le lockfile installe R ou que le cache garantit la validité d’un indicateur.
+
+## Q28 — Que testez-vous et que reste-t-il à valider ?
+
+**Réponse courte :** les règles techniques et statistiques implémentées, pas toute la pertinence institutionnelle.
+
+**Réponse détaillée :** les tests couvrent données, anomalies, nettoyage,
+indicateurs, modèles, pipelines et interfaces. Les empreintes détectent les
+changements de fichiers ; elles ne signent pas leur authenticité. Une validation
+avec les responsables reste nécessaire pour les usages et la lisibilité métier.
+
+**Piège à éviter :** présenter le nombre d’assertions comme une mesure suffisante de qualité.
+
+## Q29 — Quelles précautions prenez-vous avant GitHub ?
+
+**Réponse courte :** vérifier destination, fichiers, secrets et exclusions avant commit et push.
+
+**Réponse détaillée :** les sources et le lockfile sont proposés au versionnement,
+les données de travail, caches et paramètres locaux sont exclus. Une recherche
+de signatures sensibles complète l’examen du diff sans garantir l’absence de
+tout secret. À cette étape, aucun remote n’est configuré : la publication attend
+la confirmation de destination et des fichiers.
+
+**Piège à éviter :** croire que `.gitignore` efface un secret déjà présent dans l’historique.
+
+## Q30 — Quelle recommandation feriez-vous aux responsables de formation ?
+
+**Réponse courte :** lire ensemble résultats, populations et couverture avant de décider.
+
+**Réponse détaillée :** le projet propose de contextualiser les volumes, examiner
+les décisions inconnues, comparer les cohortes à durée égale et associer
+participation et satisfaction. Dans une situation réelle, ces constats seraient
+discutés avec les équipes ; les chiffres fictifs ne prescrivent aucune action
+sur l’UPEC ni aucun classement des formations.
+
+**Piège à éviter :** transformer un taux isolé en jugement sur une équipe ou une formation.
+
+## Modalité d’entraînement
+
+Tirer cinq questions couvrant au moins une méthode, un outil et une situation
+métier. Répondre d’abord en 20 à 30 secondes, puis développer en une minute.
+Vérifier après l’exercice : définition de la population, distinction résultat /
+interprétation, reconnaissance des limites et absence de promesse non réalisée.
+Les durées sont des consignes d’entraînement, pas une évaluation chronométrée.
